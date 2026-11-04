@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NASH · Banco de parciales del Rosario</title>
+  <meta name="description" content="NASH es el banco de parciales, quices, apuntes y talleres de las carreras de la Universidad del Rosario, organizado por carrera y materia y subido por estudiantes.">
+  <meta name="theme-color" content="#c8102e">
+  <link rel="icon" href="img/icono.svg" type="image/svg+xml">
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="preload" href="fonts/gambarino-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/general-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fuentes.css">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <!-- Cabecera fija: siempre a la vista, y dice si hay una sesión abierta -->
+  <nav class="topbar" aria-label="Principal">
+    <a class="wordmark" href="index.html" aria-label="NASH, inicio">NASH</a>
+    <ul class="tab">
+      <li><a class="link" href="#carreras">Carreras</a></li>
+      <li><a class="link" href="#como">Cómo funciona</a></li>
+      <li><a class="link" href="#preguntas">Preguntas</a></li>
+    </ul>
+    <div class="acciones" data-sesion="fuera">
+      <a class="link" href="ingresar.html">Ingresar</a>
+      <a class="button" href="ingresar.html#crear">Crear cuenta</a>
+    </div>
+    <div class="acciones" data-sesion="dentro" hidden>
+      <span class="quien">
+        <span class="avatar-l con-sesion" data-yo="iniciales" aria-hidden="true"></span>
+        <span class="quien-txt"><small>Sesión iniciada</small><b data-yo="nombre"></b></span>
+      </span>
+      <button class="link" type="button" data-salir>Salir</button>
+      <a class="button" href="app.html">Ir a mi banco</a>
+    </div>
+    <a class="link solo-movil movil-ingresar" href="ingresar.html" data-sesion="fuera">Ingresar</a>
+    <a class="avatar-l solo-movil con-sesion" href="app.html" data-sesion="dentro" data-yo="iniciales" aria-label="Sesión iniciada: ir a mi banco" hidden></a>
+    <button class="menu-word" type="button" aria-expanded="false" aria-controls="menu-movil">Menú</button>
+  </nav>
+
+  <div class="sheet" id="menu-movil" hidden>
+    <p class="sheet-sesion" data-sesion="dentro" hidden>Sesión iniciada como <b data-yo="nombre"></b></p>
+    <ul>
+      <li><a href="#carreras">Carreras</a></li>
+      <li><a href="#como">Cómo funciona</a></li>
+      <li><a href="#preguntas">Preguntas</a></li>
+      <li data-sesion="fuera"><a href="ingresar.html">Ingresar</a></li>
+      <li data-sesion="dentro" hidden><button type="button" data-salir>Cerrar sesión</button></li>
+    </ul>
+    <a class="button button-block" href="ingresar.html#crear" data-sesion="fuera">Crear cuenta</a>
+    <a class="button button-block" href="app.html" data-sesion="dentro" hidden>Ir a mi banco</a>
+  </div>
+
+  <header class="masthead">
+    <div class="band">
+      <div class="cell c-columna" aria-hidden="true">
+        <p class="col-titulo">Carreras</p>
+        <ul>
+          <li>Economía</li>
+          <li>Jurisprudencia</li>
+          <li>Medicina</li>
+          <li>MACC</li>
+          <li>Psicología</li>
+          <li>Ciencia Política</li>
+        </ul>
+      </div>
+      <figure class="cell c-claustro">
+        <img src="img/claustro-patio.jpg" width="1600" height="1200" alt="El patio del Claustro de la Universidad del Rosario visto desde arriba, con sus arcos blancos y techos de teja" fetchpriority="high">
+      </figure>
+      <figure class="cell c-tablero">
+        <img src="img/tablero-cmap.jpg" width="1400" height="933" alt="Una persona escribe en un tablero verde una función generadora de probabilidad">
+      </figure>
+      <div class="cell c-codigo" aria-hidden="true"><span id="n-carreras">24</span><small>carreras en NASH</small></div>
+      <div class="cell c-piedra" aria-hidden="true"></div>
+      <figure class="cell c-muestra">
+        <img src="img/muestra-division.jpg" width="1200" height="1290" alt="Bordado escolar del siglo XIX con una división compuesta y el nombre de su autora">
+      </figure>
+      <div class="cell c-rojo" aria-hidden="true"></div>
+      <figure class="cell c-capilla">
+        <img src="img/capilla-1886.jpg" width="1080" height="1454" alt="Fotografía de 1886 de la portada de la capilla de la Universidad del Rosario">
+      </figure>
+      <div class="cell c-tinta" aria-hidden="true"></div>
+      <div class="cell c-rojo-2" aria-hidden="true"></div>
+    </div>
+
+    <div class="hero-text wrap grid">
+      <p class="standfirst" data-rise style="--i:3">NASH es el banco de parciales, quices, apuntes y talleres de las carreras del Rosario, subidos por estudiantes que ya vieron las materias.</p>
+      <h1 class="display lines" id="contenido">
+        <span class="line"><span data-line style="--i:0">Estudia con</span></span>
+        <span class="line"><span data-line style="--i:1">lo que ya salió</span></span>
+      </h1>
+      <a class="button hero-action" href="ingresar.html#crear" data-rise style="--i:4" data-sesion="fuera">Crear cuenta</a>
+      <a class="button hero-action" href="app.html" data-rise style="--i:4" data-sesion="dentro" hidden>Ir a mi banco</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Lo que hay en cada carrera: se elige la carrera y se ven sus materias con cuánto material tienen -->
+    <section class="pensum wrap" id="carreras" aria-labelledby="t-pensum">
+      <h2 id="t-pensum" class="h-head" data-reveal><span class="sangria">Lo que hay en</span> tu carrera</h2>
+      <div class="grid pensum-cuerpo">
+        <!-- El banco hoy: cifras generales de todas las carreras (sirven aunque el banco esté vacío) -->
+        <aside class="banco-hoy" data-reveal style="--i:2" aria-labelledby="t-hoy">
+          <h3 id="t-hoy">El banco hoy</h3>
+          <dl class="kpis">
+            <div><dt>Archivos</dt><dd class="num" id="k-archivos">—</dd></div>
+            <div><dt>Carreras con material</dt><dd class="num"><span id="k-activas">—</span><small> de <span id="k-carreras">24</span></small></dd></div>
+            <div><dt>Materias con material</dt><dd class="num" id="k-materias">—</dd></div>
+            <div><dt>Parciales y quices</dt><dd class="num" id="k-evaluaciones">—</dd></div>
+          </dl>
+          <h4>Carreras con más material</h4>
+          <ol class="barras" id="top-carreras" aria-live="polite">
+            <li class="barras-vacio">Cargando…</li>
+          </ol>
+        </aside>
+        <div class="pensum-tabla" data-reveal style="--i:1">
+          <div class="elegir">
+            <label for="l-carrera">Carrera</label>
+            <select id="l-carrera"></select>
+          </div>
+          <div class="semestres" role="tablist" aria-label="Partes de la carrera" id="tabs"></div>
+          <ol class="filas" role="tabpanel" aria-live="polite" id="filas-pensum"></ol>
+          <p class="pensum-pie" id="pie-pensum"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- La regla: un parcial entra una sola vez -->
+    <section class="codigos" aria-labelledby="t-codigos">
+      <div class="wrap grid codigos-top">
+        <h2 id="t-codigos" class="h-lead" data-reveal>Cada parcial entra una sola vez</h2>
+        <p data-reveal style="--i:1">Si el Parcial 1 de una materia, con ese profesor y en ese periodo, ya está en el banco, NASH no lo guarda otra vez: te dice quién lo subió y qué número sigue libre. Los apuntes son de quien los toma, así que cada estudiante sube los suyos.</p>
+      </div>
+      <div class="wrap grid especimenes">
+        <figure class="especimen">
+          <div class="corte"><span class="cifra" data-reveal style="--i:2">1</span></div>
+          <figcaption>Parcial 1: ya está en el banco, con el nombre de quien lo subió</figcaption>
+        </figure>
+        <figure class="especimen">
+          <div class="corte"><span class="cifra" data-reveal style="--i:3">2</span></div>
+          <figcaption>Parcial 2: el siguiente libre, para el próximo que lo tenga</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Cómo funciona una subida -->
+    <section class="como wrap" id="como" aria-labelledby="t-como">
+      <h2 id="t-como" class="h-lead" data-reveal>¿Qué pasa cuando subes algo?</h2>
+      <div class="etapas">
+
+        <div class="etapa" data-reveal>
+          <p><strong>Primero, eliges la carrera y la materia.</strong> Si tu carrera todavía no tiene el pensum en NASH, o es una electiva, escribes el nombre de la materia y queda creada para todos. Luego el tipo, el número, el profesor y la fecha en que lo presentaste: de ahí sale el periodo.</p>
+          <div class="evidencia ficha" data-ui aria-label="Ejemplo de la ficha de subida">
+            <div class="f ancho"><span>Carrera</span><b>Economía</b></div>
+            <div class="f ancho"><span>Materia</span><b>Microeconomía I</b></div>
+            <div class="f"><span>Tipo</span><b>Parcial</b></div>
+            <div class="f"><span>Número</span><b class="num">2</b></div>
+            <div class="f"><span>Fecha</span><b class="num">17/04/2026</b></div>
+            <div class="f"><span>Periodo</span><b class="num">2026-1</b></div>
+          </div>
+        </div>
+
+        <div class="etapa" data-reveal>
+          <p><strong>Antes de guardarlo,</strong> NASH revisa que no exista ya. Si ese parcial ya está, te dice quién lo subió y te ofrece el siguiente número libre.</p>
+          <div class="evidencia aviso" data-ui role="img" aria-label="Ejemplo del aviso de material repetido">
+            <p class="aviso-titulo">Parcial 2 de 2026-1 ya está en el banco</p>
+            <p>Lo subió <b>Mariana G.</b> el 25 de abril: «Equilibrio del consumidor». No se guardan dos veces. Siguiente libre: 3.</p>
+          </div>
+        </div>
+
+        <div class="etapa" data-reveal>
+          <p><strong>Desde ese momento,</strong> aparece en la materia con tu nombre, el del profesor y el periodo. Quien lo descargue sabe de dónde viene.</p>
+          <div class="evidencia material" data-ui aria-label="Ejemplo de cómo se ve un material en el banco">
+            <span class="tag">Parcial 2</span>
+            <div class="material-txt">
+              <b>Equilibrio del consumidor</b>
+              <span>Microeconomía I · 2026-1 · subido por ti</span>
+            </div>
+            <span class="material-meta num">PDF · 2,4 MB<br>0 descargas</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Preguntas -->
+    <section class="preguntas" id="preguntas" aria-labelledby="t-preguntas">
+      <div class="banda banda-titulo">
+        <h2 id="t-preguntas" class="display wrap" data-reveal>Preguntas</h2>
+      </div>
+      <div class="wrap qa">
+        <div class="qa-item">
+          <h3>¿Quién puede entrar?</h3>
+          <p>Cualquier estudiante con correo @urosario.edu.co. Te registras, eliges tu carrera, escribes el código que llega a tu correo y listo. Sin ese correo no se puede crear la cuenta.</p>
+        </div>
+        <div class="qa-item">
+          <h3>¿Sirve para mi carrera?</h3>
+          <p>Sí, para cualquier carrera del Rosario. Las que tienen el pensum cargado muestran sus materias por semestre; en las demás, las materias aparecen a medida que se sube material. Las del núcleo rosarista son de todos.</p>
+        </div>
+        <div class="qa-item">
+          <h3>¿Puedo subir un parcial que ya está?</h3>
+          <p>No. Si ya existe el mismo parcial de la misma materia, periodo, número y profesor, NASH te muestra quién lo subió y no lo duplica. Puedes subir otro número, otro periodo o tus apuntes de esa semana.</p>
+        </div>
+        <div class="qa-item">
+          <h3>¿Se sabe quién subió cada cosa?</h3>
+          <p>Sí. Cada archivo muestra el nombre de quien lo subió, el del profesor y el periodo. Así sabes de dónde viene antes de estudiar con él.</p>
+        </div>
+        <div class="qa-item">
+          <h3>¿Qué archivos acepta?</h3>
+          <p>PDF, JPG o PNG de hasta 10 MB. Una foto bien iluminada de un parcial sirve; un PDF escaneado sirve más. Tapa tu nombre, tu código y tu nota antes de escanearlo.</p>
+        </div>
+        <div class="qa-item">
+          <h3>¿Puedo subir cualquier parcial?</h3>
+          <p>Sube solo lo que el profesor ya devolvió o publicó. NASH no reemplaza el material oficial de tus clases y no es un sitio de la Universidad.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cierre -->
+    <section class="cierre" aria-labelledby="t-cierre">
+      <div class="wrap">
+        <h2 id="t-cierre" class="display" data-reveal>Tu parcial<br>le sirve a otro</h2>
+        <div class="cierre-pie">
+          <p class="lead" data-reveal style="--i:1" data-sesion="fuera">Crea tu cuenta con el correo de la U y sube lo que ya presentaste.</p>
+          <p class="lead" data-reveal style="--i:1" data-sesion="dentro" hidden>Ya tienes la sesión abierta. Sube lo que ya presentaste.</p>
+          <a class="button button-grande" href="ingresar.html#crear" data-reveal style="--i:2" data-sesion="fuera">Crear cuenta</a>
+          <a class="button button-grande" href="app.html#/subir" data-reveal style="--i:2" data-sesion="dentro" hidden>Subir material</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="wrap">
+      <svg class="pie-marca" viewBox="0 0 1000 238" role="img" aria-label="NASH">
+        <text x="-14" y="226" textLength="1028" lengthAdjust="spacingAndGlyphs">NASH</text>
+      </svg>
+      <div class="grid pie-fila">
+        <ul class="pie-lugares">
+          <li data-sesion="fuera"><a class="link" href="ingresar.html">Ingresar</a></li>
+          <li data-sesion="fuera"><a class="link" href="ingresar.html#crear">Crear cuenta</a></li>
+          <li data-sesion="dentro" hidden><a class="link" href="app.html">Ir a mi banco</a></li>
+          <li><a class="link" href="app.html#/subir">Subir material</a></li>
+        </ul>
+        <div class="pie-cols">
+          <div>
+            <h2>NASH</h2>
+            <ul>
+              <li><a class="link" href="#carreras">Carreras</a></li>
+              <li><a class="link" href="#como">Cómo funciona</a></li>
+              <li><a class="link" href="#preguntas">Preguntas</a></li>
+            </ul>
+          </div>
+          <div>
+            <h2>Rosario</h2>
+            <ul>
+              <li><a class="link" href="https://urosario.edu.co" rel="noopener">Universidad del Rosario</a></li>
+            </ul>
+          </div>
+          <div class="pie-creditos">
+            <h2>Imágenes</h2>
+            <p>“Claustro de la Universidad de Nuestra Señora del Rosario”, AndresJaramillo1992, <a class="link" href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a>, <a class="link" href="https://commons.wikimedia.org/wiki/File:Claustro_de_la_Universidad_de_Nuestra_Se%C3%B1ora_del_Rosario.jpg">Wikimedia Commons</a>.
+              “CMAP”, Jérémy Barande, <a class="link" href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a>, <a class="link" href="https://commons.wikimedia.org/wiki/File:CMAP_-_Centre_de_Math%C3%A9matiques_Appliqu%C3%A9es_de_l%27Ecole_polytechnique.jpg">Wikimedia Commons</a>.
+              “Sampler with compound division equation”, Mary Ann Sadler, dominio público, <a class="link" href="https://www.metmuseum.org/art/collection/search/228665">The Met</a>.
+              “Entrada Capilla Universidad del Rosario”, Julio Racines, 1886, dominio público, <a class="link" href="https://commons.wikimedia.org/wiki/File:Entrada_Capilla_Universidad_del_Rosario_-_Bogota.jpg">Wikimedia Commons</a>.
+              Fotografías en escala de grises.</p>
+          </div>
+        </div>
+      </div>
+      <div class="pie-legal">
+        <p>NASH no es un sitio oficial de la Universidad del Rosario.</p>
+        <a class="link" href="#contenido">Volver arriba</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/pensum.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/landing.js"></script>
+</body>
+</html>

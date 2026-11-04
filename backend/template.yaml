@@ -1,0 +1,490 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  NASH, banco de parciales, quices, apuntes y talleres de las carreras de la Universidad del Rosario.
+  Sitio estático en S3, cuentas en Cognito, API HTTP en API Gateway con Lambda, data lake en S3
+  (raw / staging / processed), catálogo y ETL en Glue, consultas en Athena.
+
+Parameters:
+  Prefijo:
+    Type: String
+    Default: nash
+    AllowedPattern: "[a-z][a-z0-9]{1,20}"
+    Description: Prefijo para los nombres de los recursos (minúsculas y números, sin guiones; la base de Glue queda <prefijo>_db).
+  LabRoleArn:
+    Type: String
+    Default: ""
+    Description: >
+      En AWS Academy (Learner Lab) no se pueden crear roles: pega aquí el ARN de LabRole
+      (arn:aws:iam::<cuenta>:role/LabRole). Déjalo vacío en una cuenta normal y la pila crea sus propios roles.
+  DominiosPermitidos:
+    Type: String
+    Default: urosario.edu.co
+    Description: Dominios de correo que pueden crear cuenta, separados por comas.
+  MaxMB:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 50
+    Description: Tamaño máximo de cada archivo, en MB.
+  OrigenLocal:
+    Type: String
+    Default: http://localhost:8765
+    Description: Origen extra permitido por CORS para probar el sitio en el computador.
+
+Conditions:
+  UsarLabRole: !Not [!Equals [!Ref LabRoleArn, ""]]
+  CrearRoles: !Equals [!Ref LabRoleArn, ""]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]
+    MemorySize: 256
+    Timeout: 29
+
+Resources:
+  # ---------------------------------------------------------------- S3: el sitio web
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Prefijo}-web-${AWS::AccountId}"
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: LecturaPublicaDelSitio
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${WebBucket.Arn}/*"
+
+  # ---------------------------------------------------------------- S3: el data lake
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Prefijo}-datos-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      CorsConfiguration:
+        CorsRules:
+          # El navegador sube el archivo con un POST firmado y lo descarga con una URL firmada.
+          - AllowedOrigins:
+              - !GetAtt WebBucket.WebsiteURL
+              - !Ref OrigenLocal
+            AllowedMethods: [POST, GET]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+      LifecycleConfiguration:
+        Rules:
+          - Id: staging-expira
+            Status: Enabled
+            Prefix: staging/
+            ExpirationInDays: 1
+          - Id: athena-resultados-expira
+            Status: Enabled
+            Prefix: athena-resultados/
+            ExpirationInDays: 7
+          - Id: glue-temporal-expira
+            Status: Enabled
+            Prefix: glue-temporal/
+            ExpirationInDays: 2
+
+  # ---------------------------------------------------------------- Cognito
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${Prefijo}-usuarios"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: false
+          RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: Tu código de NASH
+        EmailMessage: "Tu código para confirmar tu cuenta de NASH es {####}. Vence en 24 horas."
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignupFunction.Arn
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${Prefijo}-web"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  PreSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Prefijo}-presignup"
+      Description: Rechaza registros con correos fuera de los dominios permitidos.
+      CodeUri: src/presignup/
+      Handler: app.handler
+      Timeout: 5
+      MemorySize: 128
+      Role: !If [UsarLabRole, !Ref LabRoleArn, !GetAtt PreSignupRole.Arn]
+      Environment:
+        Variables:
+          DOMINIOS: !Ref DominiosPermitidos
+
+  PreSignupPermiso:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PreSignupFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
+
+  # ---------------------------------------------------------------- API Gateway (HTTP API) + Lambda
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: API de NASH
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 50
+        ThrottlingRateLimit: 25
+      CorsConfiguration:
+        AllowOrigins:
+          - !GetAtt WebBucket.WebsiteURL
+          - !Ref OrigenLocal
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET, POST, OPTIONS]
+        MaxAge: 600
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+              audience:
+                - !Ref UserPoolClient
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Prefijo}-api"
+      Description: Rutas de NASH. Valida, revisa duplicados en S3, firma subidas y descargas, consulta Athena e inicia Glue.
+      CodeUri: src/api/
+      Handler: app.handler
+      Role: !If [UsarLabRole, !Ref LabRoleArn, !GetAtt ApiRole.Arn]
+      Environment:
+        Variables:
+          BUCKET_DATOS: !Ref DataBucket
+          GLUE_DB: !Ref GlueDatabase
+          GLUE_JOB: !Ref EtlJob
+          CRAWLER_RAW: !Ref CrawlerRaw
+          ATHENA_WORKGROUP: !Ref AthenaWorkGroup
+          MAX_MB: !Ref MaxMB
+      Events:
+        Resumen:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /publico/resumen
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        Listar:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /materiales, Method: GET }
+        Disponibilidad:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /materiales/disponibilidad, Method: GET }
+        Crear:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /materiales, Method: POST }
+        Confirmar:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: "/materiales/{id}/confirmar", Method: POST }
+        Descarga:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: "/materiales/{id}/descarga", Method: GET }
+        Aportes:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /yo/aportes, Method: GET }
+        Estadisticas:
+          Type: HttpApi
+          Properties: { ApiId: !Ref HttpApi, Path: /estadisticas, Method: GET }
+
+  # ---------------------------------------------------------------- Glue: catálogo, crawlers y ETL
+  GlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub "${Prefijo}_db"
+        Description: Catálogo de NASH (raw_* en JSON, proc_* en Parquet).
+
+  CrawlerRaw:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Sub "${Prefijo}-crawler-raw"
+      Role: !If [UsarLabRole, !Ref LabRoleArn, !GetAtt GlueRole.Arn]
+      DatabaseName: !Ref GlueDatabase
+      TablePrefix: raw_
+      Targets:
+        S3Targets:
+          - Path: !Sub "s3://${DataBucket}/raw/materiales/"
+          - Path: !Sub "s3://${DataBucket}/raw/descargas/"
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG
+      Configuration: '{"Version":1.0,"CrawlerOutput":{"Tables":{"AddOrUpdateBehavior":"MergeNewColumns"}}}'
+      Schedule:
+        ScheduleExpression: cron(0 5 * * ? *)
+
+  CrawlerProcessed:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Sub "${Prefijo}-crawler-processed"
+      Role: !If [UsarLabRole, !Ref LabRoleArn, !GetAtt GlueRole.Arn]
+      DatabaseName: !Ref GlueDatabase
+      TablePrefix: proc_
+      Targets:
+        S3Targets:
+          - Path: !Sub "s3://${DataBucket}/processed/materiales/"
+      SchemaChangePolicy:
+        UpdateBehavior: UPDATE_IN_DATABASE
+        DeleteBehavior: LOG
+
+  EtlJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub "${Prefijo}-etl-materiales"
+      Description: JSON de raw/materiales + conteo de raw/descargas → Parquet en processed/materiales (partición periodo).
+      Role: !If [UsarLabRole, !Ref LabRoleArn, !GetAtt GlueRole.Arn]
+      GlueVersion: "4.0"
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      Timeout: 15
+      MaxRetries: 0
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: !Sub "s3://${DataBucket}/scripts/etl_materiales.py"
+      DefaultArguments:
+        "--job-language": python
+        "--BUCKET": !Ref DataBucket
+        "--CRAWLER_PROCESSED": !Ref CrawlerProcessed
+        "--TempDir": !Sub "s3://${DataBucket}/glue-temporal/"
+        "--enable-continuous-cloudwatch-log": "true"
+
+  EtlRespaldo:
+    Type: AWS::Glue::Trigger
+    Properties:
+      Name: !Sub "${Prefijo}-etl-cada-6-horas"
+      Description: Respaldo por si una ejecución lanzada por la Lambda se cruzó con otra.
+      Type: SCHEDULED
+      Schedule: cron(0 */6 * * ? *)
+      StartOnCreation: true
+      Actions:
+        - JobName: !Ref EtlJob
+
+  # ---------------------------------------------------------------- Athena
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Ref Prefijo
+      Description: Consultas de NASH sobre nash_db.
+      RecursiveDeleteOption: true
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        BytesScannedCutoffPerQuery: 1073741824
+        EngineVersion:
+          SelectedEngineVersion: Athena engine version 3
+        ResultConfiguration:
+          OutputLocation: !Sub "s3://${DataBucket}/athena-resultados/"
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+
+  # ---------------------------------------------------------------- IAM (solo fuera de AWS Academy)
+  PreSignupRole:
+    Type: AWS::IAM::Role
+    Condition: CrearRoles
+    Properties:
+      RoleName: !Sub "${Prefijo}-presignup-rol"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  ApiRole:
+    Type: AWS::IAM::Role
+    Condition: CrearRoles
+    Properties:
+      RoleName: !Sub "${Prefijo}-api-rol"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: nash-api
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ObjetosDelLago
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource:
+                  - !Sub "${DataBucket.Arn}/raw/*"
+                  - !Sub "${DataBucket.Arn}/staging/*"
+                  - !Sub "${DataBucket.Arn}/indice/*"
+                  - !Sub "${DataBucket.Arn}/athena-resultados/*"
+              - Sid: LeerProcessed
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub "${DataBucket.Arn}/processed/*"
+              - Sid: ListarElLago
+                Effect: Allow
+                Action: [s3:ListBucket, s3:GetBucketLocation, s3:ListBucketMultipartUploads, s3:AbortMultipartUpload, s3:ListMultipartUploadParts]
+                Resource: [!GetAtt DataBucket.Arn, !Sub "${DataBucket.Arn}/athena-resultados/*"]
+              - Sid: Athena
+                Effect: Allow
+                Action: [athena:StartQueryExecution, athena:GetQueryExecution, athena:GetQueryResults, athena:StopQueryExecution, athena:GetWorkGroup]
+                Resource: !Sub "arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/${AthenaWorkGroup}"
+              - Sid: CatalogoGlue
+                Effect: Allow
+                Action: [glue:GetDatabase, glue:GetTable, glue:GetTables, glue:GetPartition, glue:GetPartitions]
+                Resource:
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog"
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${GlueDatabase}"
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/${GlueDatabase}/*"
+              - Sid: LanzarGlue
+                Effect: Allow
+                Action: [glue:StartJobRun, glue:StartCrawler]
+                Resource:
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:job/${EtlJob}"
+                  - !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:crawler/${CrawlerRaw}"
+
+  GlueRole:
+    Type: AWS::IAM::Role
+    Condition: CrearRoles
+    Properties:
+      RoleName: !Sub "${Prefijo}-glue-rol"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: glue.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Policies:
+        - PolicyName: nash-glue
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: LeerRawYScripts
+                Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub "${DataBucket.Arn}/raw/*"
+                  - !Sub "${DataBucket.Arn}/scripts/*"
+              - Sid: EscribirProcessed
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource:
+                  - !Sub "${DataBucket.Arn}/processed/*"
+                  - !Sub "${DataBucket.Arn}/glue-temporal/*"
+              - Sid: Listar
+                Effect: Allow
+                Action: [s3:ListBucket, s3:GetBucketLocation]
+                Resource: !GetAtt DataBucket.Arn
+              - Sid: CrawlerProcessed
+                Effect: Allow
+                Action: glue:StartCrawler
+                Resource: !Sub "arn:aws:glue:${AWS::Region}:${AWS::AccountId}:crawler/${Prefijo}-crawler-processed"
+
+Outputs:
+  WebsiteURL:
+    Description: Dirección del sitio (S3 website).
+    Value: !GetAtt WebBucket.WebsiteURL
+  WebBucketName:
+    Description: Bucket del sitio; aquí va el contenido de frontend/.
+    Value: !Ref WebBucket
+  DataBucketName:
+    Description: Bucket del data lake; aquí va backend/glue/etl_materiales.py en scripts/.
+    Value: !Ref DataBucket
+  ApiUrl:
+    Description: Va en API_URL de frontend/js/config.js.
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  Region:
+    Description: Va en REGION de frontend/js/config.js.
+    Value: !Ref AWS::Region
+  UserPoolId:
+    Description: Va en COGNITO_USER_POOL_ID de frontend/js/config.js.
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Description: Va en COGNITO_CLIENT_ID de frontend/js/config.js.
+    Value: !Ref UserPoolClient
+  GlueDatabaseName:
+    Value: !Ref GlueDatabase
+  AthenaWorkGroupName:
+    Value: !Ref AthenaWorkGroup

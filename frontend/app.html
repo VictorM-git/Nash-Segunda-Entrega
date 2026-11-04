@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NASH · Banco de material</title>
+  <meta name="description" content="Parciales, quices, apuntes y talleres de las carreras del Rosario, organizados por carrera y materia.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="img/icono.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/general-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/general-sans-500.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/gambarino-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fuentes.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Sin sesión no se pinta nada: directo a ingresar (y de vuelta a esta misma ruta después).
+    (function () {
+      try {
+        // ?demo abre la cuenta de prueba (solo en modo local; app.js lo comprueba)
+        if (!localStorage.getItem("nash.sesion") && !/[?&]demo(=|&|$)/.test(location.search)) {
+          location.replace("ingresar.html?volver=" + encodeURIComponent(location.hash || "#/"));
+        }
+      } catch (e) { /* sin almacenamiento: app.js decide con la sesión en memoria */ }
+    })();
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-inicio" viewBox="0 0 16 16"><path d="M2.5 7 8 2.5 13.5 7v6.5h-4v-4h-3v4h-4Z"/></symbol>
+    <symbol id="i-explorar" viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6 6v7.5"/></symbol>
+    <symbol id="i-subir" viewBox="0 0 16 16"><path d="M8 10.5V2.5M4.8 5.7 8 2.5l3.2 3.2M2.5 10v2a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5v-2"/></symbol>
+    <symbol id="i-aportes" viewBox="0 0 16 16"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.8 13.5c.7-2.4 2.8-3.8 5.2-3.8s4.5 1.4 5.2 3.8"/></symbol>
+    <symbol id="i-estad" viewBox="0 0 16 16"><path d="M2.5 13.5h11M4.5 11V7.5M8 11V3.5M11.5 11V6"/></symbol>
+    <symbol id="i-lupa" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
+    <symbol id="i-cerrar" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+    <symbol id="i-salir" viewBox="0 0 16 16"><path d="M6.5 13.5H4A1.5 1.5 0 0 1 2.5 12V4A1.5 1.5 0 0 1 4 2.5h2.5M10.5 11 13.5 8l-3-3M13.5 8H6"/></symbol>
+    <symbol id="i-bajar" viewBox="0 0 16 16"><path d="M8 2.5v8M4.8 7.3 8 10.5l3.2-3.2M2.5 13.5h11"/></symbol>
+    <symbol id="i-archivo" viewBox="0 0 16 16"><path d="M9.5 1.5H4.5A1.5 1.5 0 0 0 3 3v10a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 13V5Z"/><path d="M9.5 1.5V5H13"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.8v3.6M8 11h.01"/></symbol>
+    <symbol id="i-punto" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></symbol>
+    <symbol id="i-flecha" viewBox="0 0 16 16"><path d="m6 3.5 4.5 4.5L6 12.5"/></symbol>
+  </svg>
+
+  <div class="app">
+    <header class="topbar-movil">
+      <button class="icon-btn" type="button" id="abrir-menu" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false"><svg class="icon"><use href="#i-menu"/></svg></button>
+      <span class="t" id="titulo-movil">NASH</span>
+      <a class="icon-btn" href="#/subir" aria-label="Subir material"><svg class="icon"><use href="#i-subir"/></svg></a>
+      <button class="avatar propio avatar-btn" type="button" id="yo-movil" aria-label="Tu cuenta" aria-controls="sidebar"></button>
+    </header>
+
+    <nav class="sidebar" id="sidebar" aria-label="Principal">
+      <div class="side-top">
+        <a class="brand" href="#/">
+          <img src="img/icono.svg" alt="" width="28" height="28">
+          <span><b>NASH</b><small id="brand-carrera">Universidad del Rosario</small></span>
+        </a>
+        <button class="icon-btn cerrar-menu" type="button" id="cerrar-menu" aria-label="Cerrar menú"><svg class="icon"><use href="#i-cerrar"/></svg></button>
+      </div>
+
+      <form class="side-search" id="buscar-lateral" role="search">
+        <svg class="icon" aria-hidden="true"><use href="#i-lupa"/></svg>
+        <label class="sr-only" for="q-lateral">Buscar material</label>
+        <input class="input" id="q-lateral" type="search" placeholder="Buscar en el banco" autocomplete="off">
+      </form>
+
+      <ul class="nav">
+        <li><a class="nav-item" href="#/" data-nav="inicio"><svg class="icon"><use href="#i-inicio"/></svg>Inicio</a></li>
+        <li><a class="nav-item" href="#/explorar" data-nav="explorar"><svg class="icon"><use href="#i-explorar"/></svg>Explorar el banco</a></li>
+        <li><a class="nav-item" href="#/subir" data-nav="subir"><svg class="icon"><use href="#i-subir"/></svg>Subir material</a></li>
+        <li><a class="nav-item" href="#/mis-aportes" data-nav="mis-aportes"><svg class="icon"><use href="#i-aportes"/></svg>Mis aportes</a></li>
+        <li><a class="nav-item" href="#/estadisticas" data-nav="estadisticas"><svg class="icon"><use href="#i-estad"/></svg>Estadísticas</a></li>
+      </ul>
+
+      <div class="side-carrera">
+        <label for="carrera-lateral">Tu carrera</label>
+        <select class="input" id="carrera-lateral"></select>
+      </div>
+
+      <div class="side-bottom">
+        <p class="demo-note" id="nota-demo" hidden>Modo local: lo que subas queda solo en este navegador.</p>
+        <div class="user-row">
+          <span class="avatar propio" id="yo-avatar" aria-hidden="true"></span>
+          <span class="who"><span class="estado">Sesión iniciada</span><b id="yo-nombre"></b><span id="yo-email"></span></span>
+          <button class="icon-btn" type="button" id="salir" aria-label="Cerrar sesión" title="Cerrar sesión"><svg class="icon"><use href="#i-salir"/></svg></button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="canvas" id="vista" tabindex="-1"></main>
+  </div>
+
+  <div class="toasts" aria-live="polite" id="toasts"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/pensum.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

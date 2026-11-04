@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingresar · NASH</title>
+  <meta name="description" content="Ingresa o crea tu cuenta de NASH con tu correo de la Universidad del Rosario.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="img/icono.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/general-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/gambarino-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/fuentes.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-ojo" viewBox="0 0 16 16"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8Z"/><circle cx="8" cy="8" r="2"/></symbol>
+    <symbol id="i-ojo-no" viewBox="0 0 16 16"><path d="M2 2l12 12M6.6 6.7a2 2 0 0 0 2.7 2.7M4.2 4.4C2.5 5.6 1.5 8 1.5 8s2.4 4.5 6.5 4.5c1.3 0 2.5-.4 3.4-1M7 3.6c.3 0 .7-.1 1-.1 4.1 0 6.5 4.5 6.5 4.5s-.5 1-1.5 2.1"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.8v3.6M8 11h.01"/></symbol>
+    <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+    <symbol id="i-punto" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.5"/></symbol>
+  </svg>
+
+  <div class="auth">
+    <main class="auth-form">
+      <a class="brand" href="index.html" aria-label="NASH, volver al inicio">
+        <img src="img/icono.svg" alt="" width="28" height="28">
+        <span><b>NASH</b><small>Universidad del Rosario</small></span>
+      </a>
+
+      <div class="auth-box">
+        <div class="auth-aviso" id="aviso" role="alert" hidden></div>
+
+        <!-- Ingresar -->
+        <section data-vista="ingresar" aria-labelledby="t-ingresar">
+          <h1 id="t-ingresar">Ingresa a NASH</h1>
+          <p class="sub">Con tu correo del Rosario. Adentro están los parciales, quices, apuntes y talleres que suben estudiantes de todas las carreras.</p>
+          <form class="form" id="f-ingresar" novalidate>
+            <div class="field">
+              <label for="in-email">Correo institucional</label>
+              <input class="input" id="in-email" name="email" type="email" autocomplete="username" inputmode="email" placeholder="nombre.apellido@urosario.edu.co" required>
+            </div>
+            <div class="field">
+              <label for="in-pass">Contraseña</label>
+              <div class="input-pw">
+                <input class="input" id="in-pass" name="password" type="password" autocomplete="current-password" required>
+                <button class="icon-btn" type="button" data-ver="in-pass" aria-label="Mostrar contraseña"><svg class="icon"><use href="#i-ojo"/></svg></button>
+              </div>
+              <a class="link hint" href="#olvide">¿Olvidaste tu contraseña?</a>
+            </div>
+            <button class="btn primary" type="submit">Ingresar</button>
+          </form>
+          <p class="auth-alt">¿Primera vez? <a href="#crear">Crear cuenta</a></p>
+        </section>
+
+        <!-- Crear cuenta -->
+        <section data-vista="crear" aria-labelledby="t-crear" hidden>
+          <h1 id="t-crear">Crea tu cuenta</h1>
+          <p class="sub">Solo con correo @urosario.edu.co. Te enviamos un código de seis dígitos para confirmarla.</p>
+          <form class="form" id="f-crear" novalidate>
+            <div class="field">
+              <label for="cr-nombre">Nombre completo</label>
+              <input class="input" id="cr-nombre" name="nombre" autocomplete="name" placeholder="Como aparecerá junto a lo que subas" required>
+            </div>
+            <div class="field">
+              <label for="cr-email">Correo institucional</label>
+              <input class="input" id="cr-email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="nombre.apellido@urosario.edu.co" required>
+            </div>
+            <div class="field">
+              <label for="cr-carrera">Carrera</label>
+              <select class="input" id="cr-carrera" name="carrera" required><option value="">Elige tu carrera</option></select>
+              <p class="hint">Verás primero sus materias. Puedes cambiarla después.</p>
+            </div>
+            <div class="field">
+              <label for="cr-pass">Contraseña</label>
+              <div class="input-pw">
+                <input class="input" id="cr-pass" name="password" type="password" autocomplete="new-password" aria-describedby="cr-reglas" required>
+                <button class="icon-btn" type="button" data-ver="cr-pass" aria-label="Mostrar contraseña"><svg class="icon"><use href="#i-ojo"/></svg></button>
+              </div>
+              <p class="pw-reglas" id="cr-reglas" data-reglas="cr-pass">
+                <span data-regla="largo"><svg class="icon"><use href="#i-punto"/></svg>8 caracteres o más</span>
+                <span data-regla="letra"><svg class="icon"><use href="#i-punto"/></svg>una letra minúscula</span>
+                <span data-regla="numero"><svg class="icon"><use href="#i-punto"/></svg>un número</span>
+              </p>
+            </div>
+            <button class="btn primary" type="submit">Crear cuenta</button>
+          </form>
+          <p class="auth-alt">¿Ya tienes cuenta? <a href="#ingresar">Ingresar</a></p>
+        </section>
+
+        <!-- Confirmar con el código -->
+        <section data-vista="confirmar" aria-labelledby="t-confirmar" hidden>
+          <h1 id="t-confirmar">Revisa tu correo</h1>
+          <p class="sub" id="confirmar-sub">Enviamos un código de seis dígitos a tu correo.</p>
+          <form class="form" id="f-confirmar" novalidate>
+            <div class="field">
+              <label for="co-email">Correo</label>
+              <input class="input" id="co-email" name="email" type="email" autocomplete="username" required>
+            </div>
+            <div class="field">
+              <label for="co-codigo">Código</label>
+              <input class="input codigo-input" id="co-codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="\d{6}" required>
+            </div>
+            <button class="btn primary" type="submit">Confirmar cuenta</button>
+          </form>
+          <p class="auth-alt">¿No llegó? <button type="button" id="reenviar">Reenviar código</button></p>
+        </section>
+
+        <!-- Olvidé la contraseña -->
+        <section data-vista="olvide" aria-labelledby="t-olvide" hidden>
+          <h1 id="t-olvide">Recupera tu contraseña</h1>
+          <p class="sub">Escribe tu correo y te enviamos un código para crear una nueva.</p>
+          <form class="form" id="f-olvide" novalidate>
+            <div class="field">
+              <label for="ol-email">Correo institucional</label>
+              <input class="input" id="ol-email" name="email" type="email" autocomplete="username" inputmode="email" required>
+            </div>
+            <button class="btn primary" type="submit">Enviar código</button>
+          </form>
+          <p class="auth-alt"><a href="#ingresar">Volver a ingresar</a></p>
+        </section>
+
+        <!-- Nueva contraseña -->
+        <section data-vista="restablecer" aria-labelledby="t-restablecer" hidden>
+          <h1 id="t-restablecer">Nueva contraseña</h1>
+          <p class="sub" id="restablecer-sub">Escribe el código que te llegó y tu nueva contraseña.</p>
+          <form class="form" id="f-restablecer" novalidate>
+            <div class="field">
+              <label for="re-codigo">Código</label>
+              <input class="input codigo-input" id="re-codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+            </div>
+            <div class="field">
+              <label for="re-pass">Nueva contraseña</label>
+              <div class="input-pw">
+                <input class="input" id="re-pass" name="password" type="password" autocomplete="new-password" aria-describedby="re-reglas" required>
+                <button class="icon-btn" type="button" data-ver="re-pass" aria-label="Mostrar contraseña"><svg class="icon"><use href="#i-ojo"/></svg></button>
+              </div>
+              <p class="pw-reglas" id="re-reglas" data-reglas="re-pass">
+                <span data-regla="largo"><svg class="icon"><use href="#i-punto"/></svg>8 caracteres o más</span>
+                <span data-regla="letra"><svg class="icon"><use href="#i-punto"/></svg>una letra minúscula</span>
+                <span data-regla="numero"><svg class="icon"><use href="#i-punto"/></svg>un número</span>
+              </p>
+            </div>
+            <button class="btn primary" type="submit">Guardar contraseña</button>
+          </form>
+          <p class="auth-alt"><a href="#ingresar">Volver a ingresar</a></p>
+        </section>
+        <p class="auth-aviso warn demo" id="aviso-demo" hidden></p>
+      </div>
+
+      <p class="auth-pie">NASH no es un sitio oficial de la Universidad del Rosario.</p>
+    </main>
+
+    <aside class="auth-foto" aria-label="La calle del Claustro">
+      <img src="img/claustro-calle.jpg" alt="El muro blanco del Claustro sobre la calle 14, con estudiantes caminando por la acera" width="1600" height="1200">
+      <div class="bloque">
+        <p>El parcial que viene ya lo presentó alguien.</p>
+        <small>Cada archivo lleva la materia, el profesor, el periodo y quién lo subió.</small>
+      </div>
+      <p class="credito">Foto: <a href="https://commons.wikimedia.org/wiki/File:Claustro_del_Colegio_Mayor_de_Nuestra_Se%C3%B1ora_del_Rosario_(Bogot%C3%A1)_01.JPG">Racso (Oscar Fernando Gómez)</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a>, en escala de grises</p>
+    </aside>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/pensum.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ingresar.js"></script>
+</body>
+</html>
