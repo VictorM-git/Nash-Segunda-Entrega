@@ -1,5 +1,3 @@
-/* NASH — página de inicio: la cabecera según la sesión, lo que hay en cada carrera (con los conteos del
-   servidor), el menú del teléfono y las entradas al hacer scroll. */
 (function () {
   const N = window.NASH;
   const A = N.auth;
@@ -8,7 +6,6 @@
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const plural = (n, uno, varios) => `${Number(n || 0).toLocaleString("es-CO")} ${n === 1 ? uno : varios}`;
 
-  // ---------- sesión: la cabecera dice quién está adentro ----------
   const s = A.sesion();
   if (s) {
     $$('[data-sesion="fuera"]').forEach((el) => (el.hidden = true));
@@ -22,7 +19,6 @@
   const nCarreras = $("#n-carreras");
   if (nCarreras) nCarreras.textContent = N.CARRERAS.length;
 
-  // ---------- menú del teléfono ----------
   const boton = $(".menu-word");
   const hoja = $("#menu-movil");
   if (boton && hoja) {
@@ -37,12 +33,11 @@
     document.addEventListener("keydown", (e) => e.key === "Escape" && !hoja.hidden && (cerrar(), boton.focus()));
   }
 
-  // ---------- lo que hay en cada carrera ----------
   const selector = $("#l-carrera");
   const tabsCaja = $("#tabs");
   const lista = $("#filas-pensum");
   const pie = $("#pie-pensum");
-  let conteos = null;   // respuesta de /publico/resumen
+  let conteos = null;
   let carrera = (s && N.carreraPorId[A.carrera()] ? A.carrera() : "") || "macc";
   let tab = null;
 
@@ -59,7 +54,6 @@
     if (!m.prer.length) return "sin prerrequisitos";
     return "requiere " + m.prer.map((p) => N.porId[p].codigo).join(", ");
   }
-  /** las partes de la carrera: semestres si tiene pensum; si no, sus materias con material */
   function partes() {
     const p = N.semestresDe(carrera).map((sem) => ({ id: "s" + sem, label: N.ROMANOS[sem], nombre: "Semestre " + N.ROMANOS[sem], materias: N.pensumDe(carrera).filter((m) => m.semestre === sem) }));
     const din = N.dinamicasDe(carrera);
@@ -124,7 +118,6 @@
       .catch(() => pintarBanco(null));
   }
 
-  // ---------- el banco hoy: cifras generales de todas las carreras ----------
   function pintarBanco(r) {
     const num = (n) => Number(n || 0).toLocaleString("es-CO");
     const poner = (id, v) => { const el = $("#" + id); if (el) el.textContent = v; };
@@ -155,7 +148,6 @@
     }).join("");
   }
 
-  // ---------- entradas al hacer scroll (una sola vez; nada queda oculto si falla) ----------
   const targets = document.querySelectorAll("[data-reveal]");
   if (!("IntersectionObserver" in window)) targets.forEach((el) => el.classList.add("is-in"));
   else {

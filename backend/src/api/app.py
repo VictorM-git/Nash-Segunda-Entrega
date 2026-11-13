@@ -1,24 +1,3 @@
-"""NASH: la API (AWS Lambda detrás de una HTTP API de API Gateway, formato de evento 2.0).
-
-Rutas (ver template.yaml):
-  GET  /publico/resumen                  conteos por carrera, materia y tipo (Athena sobre raw_materiales, sin sesión)
-  GET  /materiales                       lista de material con filtros (Athena)
-  GET  /materiales/disponibilidad        restricción dinámica: números ya ocupados (ListObjectsV2 en S3)
-  POST /materiales                       valida, rechaza duplicados (409) y entrega un POST firmado de S3
-  POST /materiales/{id}/confirmar        verifica el archivo, escribe el JSON en raw/ e inicia el job de Glue
-  GET  /materiales/{id}/descarga         anota la descarga en raw/descargas/ y entrega una URL firmada
-  GET  /yo/aportes                       lo que subió quien tiene la sesión (Athena)
-  GET  /estadisticas                     agregados sobre proc_materiales, los Parquet de processed/ (Athena)
-
-La restricción dinámica no necesita base de datos: la clave única (materia, tipo, periodo, número y
-profesor, o autor en los apuntes) va en el nombre del objeto, así que basta listar ese prefijo.
-  raw/materiales/{materia}__{tipo}__{periodo}__n{numero}__{clave}__{material_id}.json
-  p. ej. raw/materiales/macc.31__parcial__2026-1__n2__andres-vargas__9f1c….json
-
-Las materias son de un pensum cargado (macc.31, nucleo.lc) o las crean los estudiantes al subir material en
-una carrera sin pensum (economia.microeconomia-i): el id sale del nombre, así que dos personas que escriben
-"Microeconomía I" llegan a la misma materia.
-"""
 import base64
 import json
 import logging
@@ -47,9 +26,8 @@ CRAWLER_RAW = os.environ["CRAWLER_RAW"]
 WORKGROUP = os.environ["ATHENA_WORKGROUP"]
 MAX_MB = int(os.environ.get("MAX_MB", "10"))
 MAX_BYTES = MAX_MB * 1024 * 1024
-BOGOTA = timezone(timedelta(hours=-5))  # Colombia no tiene horario de verano
+BOGOTA = timezone(timedelta(hours=-5))
 
-# Endpoint regional + direccionamiento virtual: el POST firmado no rebota con 307 en buckets nuevos.
 s3 = boto3.client(
     "s3", region_name=REGION, endpoint_url=f"https://s3.{REGION}.amazonaws.com",
     config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
@@ -62,14 +40,11 @@ RE_ID = re.compile(r"^[0-9a-f]{32}$")
 RE_PERIODO = re.compile(r"^\d{4}-[12]$")
 RE_SUB = re.compile(r"^[0-9a-f-]{36}$")
 
-
-# ------------------------------------------------------------------ respuestas y errores
 class ErrorApi(Exception):
     def __init__(self, status, mensaje, **extra):
         super().__init__(mensaje)
         self.status = status
         self.cuerpo = dict(extra, mensaje=mensaje)
-
 
 def respuesta(status, cuerpo):
     return {
@@ -78,7 +53,6 @@ def respuesta(status, cuerpo):
         "body": json.dumps(cuerpo, ensure_ascii=False, default=str),
     }
 
-
 def usuario(event):
     claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
     sub = claims.get("sub", "")
@@ -86,7 +60,6 @@ def usuario(event):
         raise ErrorApi(401, "Tu sesión terminó. Vuelve a ingresar.")
     nombre = " ".join(str(claims.get("name") or claims.get("email") or "Estudiante").split())[:80]
     return {"sub": sub, "nombre": nombre, "email": claims.get("email", "")}
-
 
 def cuerpo_json(event):
     b = event.get("body") or "{}"
@@ -102,18 +75,13 @@ def cuerpo_json(event):
         raise ErrorApi(400, "El cuerpo de la petición debe ser un objeto JSON.")
     return datos
 
-
 def parametros(event):
     return event.get("queryStringParameters") or {}
-
 
 def ahora_iso():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-# ------------------------------------------------------------------ validación (la misma de frontend/js/api.js)
 def validar_materia(m, e):
-    """Devuelve (materia_id, carrera_id, materia_nombre). Una materia nueva se acepta si su id sale de su nombre."""
     materia = str(m.get("materia_id") or "")
     if materia in MATERIAS:
         nombre, _sem, carrera = MATERIAS[materia]
@@ -132,7 +100,6 @@ def validar_materia(m, e):
     elif id_dinamico(carrera, nombre) != materia or not materia_valida(materia):
         e["materia_id"] = "Elige la materia otra vez."
     return materia, carrera, nombre
-
 
 def validar(m):
     e = {}
@@ -189,14 +156,11 @@ def validar(m):
     }
     return limpio, e
 
-
-# ------------------------------------------------------------------ S3: llaves, lecturas y la restricción dinámica
 def prefijo(materia, tipo, periodo, numero=None, clave=None):
     p = f"{P_MAT}{materia}__{tipo}__{periodo}__"
     if numero is not None:
         p += f"n{numero}__{clave}__"
     return p
-
 
 def leer_llave(key):
     nombre = key[len(P_MAT):]
@@ -209,26 +173,21 @@ def leer_llave(key):
     return {"materia_id": materia, "tipo": tipo, "periodo": periodo, "numero": int(n[1:]),
             "clave": clave, "material_id": material_id, "key": key}
 
-
 def listar(pref):
     llaves = []
     for pagina in s3.get_paginator("list_objects_v2").paginate(Bucket=BUCKET, Prefix=pref):
         llaves.extend(o["Key"] for o in pagina.get("Contents", []))
     return llaves
 
-
 def leer_json(key):
     return json.loads(s3.get_object(Bucket=BUCKET, Key=key)["Body"].read())
-
 
 def escribir_json(key, datos):
     s3.put_object(Bucket=BUCKET, Key=key, ContentType="application/json",
                   Body=json.dumps(datos, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
-
 def resumen_registro(r):
     return {k: r.get(k) for k in ("material_id", "numero", "titulo", "profesor", "autor_nombre", "creado_en")}
-
 
 def buscar_duplicado(m, clave):
     for key in listar(prefijo(m["materia_id"], m["tipo"], m["periodo"], m["numero"], clave)):
@@ -241,13 +200,9 @@ def buscar_duplicado(m, clave):
             return {"material_id": info["material_id"], "numero": info["numero"]}
     return None
 
-
-# ------------------------------------------------------------------ Glue
 _tablas = {}
 
-
 def existe_tabla(nombre):
-    """Las tablas raw_* las crea el crawler la primera vez que hay datos; hasta entonces no existen."""
     estado = _tablas.get(nombre)
     if estado is True:
         return True
@@ -263,7 +218,6 @@ def existe_tabla(nombre):
             return False
         raise
 
-
 def asegurar_tabla(nombre):
     if existe_tabla(nombre):
         return
@@ -274,19 +228,16 @@ def asegurar_tabla(nombre):
         if e.response["Error"]["Code"] != "CrawlerRunningException":
             log.warning("No se pudo iniciar el crawler: %s", e)
 
-
 def lanzar_etl():
     try:
         glue.start_job_run(JobName=GLUE_JOB)
         return "iniciado"
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConcurrentRunsExceededException":
-            return "en-curso"  # ya hay una ejecución; el disparador programado recoge lo que falte
+            return "en-curso"
         log.warning("No se pudo iniciar el job de Glue: %s", e)
         return "pendiente"
 
-
-# ------------------------------------------------------------------ Athena
 def convertir(valor, tipo):
     if valor is None:
         return None
@@ -298,7 +249,6 @@ def convertir(valor, tipo):
         return float(valor)
     return valor
 
-
 def filas(qid):
     out, columnas, token = [], None, None
     while True:
@@ -309,16 +259,14 @@ def filas(qid):
         datos = r["ResultSet"]["Rows"]
         if columnas is None:
             columnas = [(c["Name"], c["Type"]) for c in r["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]]
-            datos = datos[1:]  # la primera fila de la primera página es el encabezado
+            datos = datos[1:]
         for fila in datos:
             out.append({n: convertir(c.get("VarCharValue"), t) for (n, t), c in zip(columnas, fila["Data"])})
         token = r.get("NextToken")
         if not token:
             return out
 
-
 def consultar(sqls):
-    """Lanza varias consultas a la vez y espera a todas. Devuelve {nombre: filas}."""
     ids = {}
     for nombre, sql in sqls.items():
         ids[nombre] = athena.start_query_execution(
@@ -349,9 +297,7 @@ def consultar(sqls):
         resultado[nombre] = filas(ids[nombre])
     return resultado
 
-
 _cache = {}
-
 
 def en_cache(clave, segundos, calcular):
     hit = _cache.get(clave)
@@ -361,15 +307,12 @@ def en_cache(clave, segundos, calcular):
     _cache[clave] = (time.time(), valor)
     return valor
 
-
 def texto_sql(s):
     return "'" + str(s).replace("'", "''") + "'"
-
 
 COLUMNAS = ("m.material_id, m.carrera_id, m.materia_id, m.materia_nombre, m.tipo, m.numero, m.titulo, m.profesor, m.profesor_slug, m.fecha, "
             "m.periodo, m.con_solucion, m.descripcion, m.archivo_nombre, m.archivo_tipo, m.archivo_bytes, "
             "m.autor_id, m.autor_nombre, m.creado_en")
-
 
 def sql_materiales(condiciones):
     if existe_tabla("raw_descargas"):
@@ -381,8 +324,6 @@ def sql_materiales(condiciones):
     donde = " AND ".join(condiciones) or "true"
     return f"SELECT {COLUMNAS}, {descargas} FROM raw_materiales m {union} WHERE {donde} ORDER BY m.creado_en DESC LIMIT 1000"
 
-
-# ------------------------------------------------------------------ rutas
 def r_resumen(event, _u):
     def calcular():
         materias, carreras = {}, {}
@@ -405,7 +346,6 @@ def r_resumen(event, _u):
                     r["ultimo"] = f["ultimo"]
         return {"materias": materias, "carreras": carreras, "totales": totales, "fuente": "athena"}
     return en_cache("resumen", 60, calcular)
-
 
 def r_listar(event, _u):
     q = parametros(event)
@@ -434,7 +374,6 @@ def r_listar(event, _u):
         return {"items": [], "fuente": "athena"}
     return {"items": consultar({"l": sql_materiales(cond)})["l"], "fuente": "athena"}
 
-
 def r_disponibilidad(event, u):
     q = parametros(event)
     materia, tipo, periodo, profesor = q.get("materia", ""), q.get("tipo", ""), q.get("periodo", ""), q.get("profesor", "")
@@ -451,7 +390,7 @@ def r_disponibilidad(event, u):
         propio = info["clave"] == clave
         item = {"numero": info["numero"], "clave": info["clave"] if (propio or tipo != "apuntes") else "otro",
                 "material_id": info["material_id"]}
-        if propio:  # solo se leen los registros que chocan con lo que se va a subir
+        if propio:
             try:
                 item.update({k: v for k, v in resumen_registro(leer_json(key)).items() if k != "material_id"})
             except ClientError:
@@ -459,7 +398,6 @@ def r_disponibilidad(event, u):
         ocupados.append(item)
     ocupados.sort(key=lambda x: x["numero"])
     return {"clave": clave, "ocupados": ocupados, "fuente": "s3"}
-
 
 def r_crear(event, u):
     m, errores = validar(cuerpo_json(event))
@@ -482,7 +420,6 @@ def r_crear(event, u):
     )
     return 201, {"material_id": material_id, "subida": {"url": post["url"], "fields": post["fields"]}}
 
-
 def r_confirmar(event, u):
     material_id = (event.get("pathParameters") or {}).get("id", "")
     if not RE_ID.match(material_id):
@@ -501,7 +438,7 @@ def r_confirmar(event, u):
         s3.delete_object(Bucket=BUCKET, Key=p["archivo_key"])
         raise ErrorApi(400, "El archivo no coincide con lo declarado (tipo o tamaño).")
     existente = buscar_duplicado(p, p["clave"])
-    if existente:  # alguien lo confirmó mientras este archivo subía
+    if existente:
         s3.delete_object(Bucket=BUCKET, Key=p["archivo_key"])
         raise ErrorApi(409, "Ese material ya está en el banco.", error="duplicado", existente=existente)
     registro = {k: p[k] for k in ("material_id", "carrera_id", "materia_id", "materia_nombre", "tipo", "numero", "titulo", "profesor", "profesor_slug",
@@ -518,7 +455,6 @@ def r_confirmar(event, u):
     _cache.pop("resumen", None)
     _cache.pop("estadisticas", None)
     return {"material": dict(registro, descargas=0), "glue": lanzar_etl()}
-
 
 def r_descarga(event, u):
     material_id = (event.get("pathParameters") or {}).get("id", "")
@@ -540,12 +476,10 @@ def r_descarga(event, u):
         "ResponseContentDisposition": f"attachment; filename*=UTF-8''{quote(idx['archivo_nombre'])}"})
     return {"url": url, "nombre": idx["archivo_nombre"]}
 
-
 def r_aportes(event, u):
     if not existe_tabla("raw_materiales"):
         return {"items": [], "fuente": "athena"}
     return {"items": consultar({"a": sql_materiales([f"m.autor_id = {texto_sql(u['sub'])}"])})["a"], "fuente": "athena"}
-
 
 SQL_ESTADISTICAS = {
     "resumen": ("SELECT count(*) AS total, count(DISTINCT materia_id) AS materias, count(DISTINCT autor_id) AS autores "
@@ -558,7 +492,6 @@ SQL_ESTADISTICAS = {
     "descargados": ("SELECT material_id, titulo, carrera_id, materia_id, materia_nombre, tipo, numero, autor_nombre, "
                     "descargas FROM proc_materiales ORDER BY descargas DESC, creado_en DESC LIMIT 6"),
 }
-
 
 def r_estadisticas(event, _u):
     def calcular():
@@ -578,7 +511,6 @@ def r_estadisticas(event, _u):
                     masDescargados=r["descargados"])
     return en_cache("estadisticas", 60, calcular)
 
-
 RUTAS = {
     "GET /publico/resumen": (r_resumen, False),
     "GET /materiales": (r_listar, True),
@@ -589,7 +521,6 @@ RUTAS = {
     "GET /yo/aportes": (r_aportes, True),
     "GET /estadisticas": (r_estadisticas, True),
 }
-
 
 def handler(event, _context):
     ruta = event.get("routeKey", "")
@@ -606,6 +537,6 @@ def handler(event, _context):
         if e.status >= 500:
             log.error("%s → %s %s", ruta, e.status, e.cuerpo)
         return respuesta(e.status, e.cuerpo)
-    except Exception:  # noqa: BLE001: cualquier otra cosa es un 500 con mensaje genérico
+    except Exception:
         log.exception("Error no controlado en %s", ruta)
         return respuesta(500, {"mensaje": "Algo falló en el servidor. Intenta de nuevo."})

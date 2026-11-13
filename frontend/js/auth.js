@@ -1,29 +1,18 @@
-/* NASH — autenticación.
- * Con AWS: Amazon Cognito (User Pool) llamado directamente con fetch, sin SDK
- *   (SignUp, ConfirmSignUp, InitiateAuth USER_PASSWORD_AUTH, REFRESH_TOKEN_AUTH, ForgotPassword…).
- * Sin AWS (config.js sin COGNITO_CLIENT_ID): MODO LOCAL, con cuentas guardadas solo en este navegador.
- *
- * El ID token (JWT) que devuelve Cognito se manda a API Gateway en la cabecera Authorization;
- * el autorizador JWT de API Gateway lo valida antes de invocar la Lambda.
- */
 (function () {
   const CFG = window.NASH_CONFIG || {};
   const DEMO = !CFG.COGNITO_CLIENT_ID;
   const CLAVE_SESION = "nash.sesion";
   const CLAVE_CUENTAS = "nash.local.cuentas";
   const CLAVE_CARRERA = "nash.carrera";
-  // Cuenta que ya existe en modo local, para probar sin registrarse
   const CUENTA_PRUEBA = { email: "prueba@urosario.edu.co", password: "nash2026", nombre: "Estudiante de prueba", sub: "u-prueba", carrera: "macc" };
 
-  // ---------- almacenamiento tolerante a fallos (modo privado, cookies bloqueadas) ----------
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } },
-    del(k) { try { localStorage.removeItem(k); } catch (e) { /* nada */ } }
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
   };
-  let memoria = null; // respaldo si localStorage no está disponible
+  let memoria = null;
 
-  // ---------- errores en español ----------
   const MENSAJES = {
     UsernameExistsException: "Ya existe una cuenta con ese correo. Ingresa o recupera tu contraseña.",
     InvalidPasswordException: "La contraseña no cumple las reglas: mínimo 8 caracteres, con letras y números.",
@@ -39,7 +28,6 @@
   function errorCognito(tipo, mensaje) {
     const code = String(tipo || "").split("#").pop();
     let texto = MENSAJES[code] || mensaje || "No se pudo completar la operación.";
-    // La Lambda de pre-registro rechaza dominios no permitidos: "PreSignUp failed with error …"
     if (code === "UserLambdaValidationException") texto = String(mensaje || "").replace(/^PreSignUp failed with error\s*/i, "").replace(/\.$/, "") + ".";
     const err = new Error(texto);
     err.code = code;
@@ -58,7 +46,6 @@
       throw new Error("La contraseña necesita mínimo 8 caracteres, con letras y números.");
   }
 
-  // ---------- JWT ----------
   function claims(jwt) {
     try {
       const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -78,7 +65,6 @@
     return s;
   }
 
-  // ---------- Cognito real ----------
   async function cognito(accion, cuerpo) {
     const res = await fetch(`https://cognito-idp.${CFG.REGION}.amazonaws.com/`, {
       method: "POST",
@@ -121,7 +107,6 @@
     })
   };
 
-  // ---------- modo local (solo en este navegador) ----------
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
   function cuentas() {
     const c = store.get(CLAVE_CUENTAS) || {};
@@ -192,7 +177,6 @@
 
   function sesion() { return store.get(CLAVE_SESION) || memoria; }
 
-  /** Devuelve un ID token vigente (lo refresca si venció) o null si no hay sesión. */
   async function token() {
     let s = sesion();
     if (!s) return null;
@@ -202,8 +186,6 @@
     return s.idToken;
   }
 
-  // La carrera de cada persona (por correo, en este navegador): decide qué pensum ve primero.
-  // Se elige al crear la cuenta y se cambia en la app.
   const claveCarrera = (email) => CLAVE_CARRERA + ":" + String(email || (sesion() || {}).email || "").toLowerCase();
   function carrera(email) { const c = store.get(claveCarrera(email)); return typeof c === "string" ? c : ""; }
   function fijarCarrera(id, email) { if (id) store.set(claveCarrera(email), id); else store.del(claveCarrera(email)); }

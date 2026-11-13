@@ -1,15 +1,12 @@
-/* NASH — entrada: ingresar, crear cuenta, confirmar con el código, recuperar la contraseña.
-   Todo pasa por NASH.auth (Amazon Cognito con el servidor conectado; este navegador en modo local). */
 (function () {
   const N = window.NASH;
   const A = N.auth;
   const $ = (s, r = document) => r.querySelector(s);
   const vistas = Array.from(document.querySelectorAll("[data-vista]"));
   const aviso = $("#aviso");
-  const PENDIENTE = "nash.pendiente"; // correo a confirmar, por si se recarga la página
-  let passwordReciente = null;        // para entrar directo después de confirmar la cuenta
+  const PENDIENTE = "nash.pendiente";
+  let passwordReciente = null;
 
-  // A dónde volver después de ingresar (solo rutas internas de la app)
   const volver = (() => {
     const v = new URLSearchParams(location.search).get("volver") || "";
     return /^#\/[\w\-/]*$/.test(v) ? v : "#/";
@@ -19,9 +16,8 @@
   if (A.sesion()) { irAlBanco(); return; }
 
   const leerPendiente = () => { try { return sessionStorage.getItem(PENDIENTE) || ""; } catch (e) { return ""; } };
-  const guardarPendiente = (email) => { try { sessionStorage.setItem(PENDIENTE, email); } catch (e) { /* nada */ } };
+  const guardarPendiente = (email) => { try { sessionStorage.setItem(PENDIENTE, email); } catch (e) {} };
 
-  // ---------- avisos ----------
   function mostrarAviso(texto, tipo) {
     if (!texto) { aviso.hidden = true; return; }
     aviso.className = "auth-aviso" + (tipo ? " " + tipo : "");
@@ -45,7 +41,6 @@
     });
   }
 
-  // ---------- vistas por hash ----------
   function mostrar(nombre, { conservarAviso = false } = {}) {
     if (!vistas.some((v) => v.dataset.vista === nombre)) nombre = "ingresar";
     vistas.forEach((v) => (v.hidden = v.dataset.vista !== nombre));
@@ -67,7 +62,6 @@
     else { history.pushState(null, "", "#" + nombre); mostrar(nombre, opciones); }
   }
 
-  // ---------- validación por campo ----------
   function errorCampo(input, texto) {
     const field = input.closest(".field");
     let el = field.querySelector(".error");
@@ -96,10 +90,8 @@
   }
   document.querySelectorAll(".input").forEach((i) => ["input", "change"].forEach((t) => i.addEventListener(t, () => i.getAttribute("aria-invalid") && errorCampo(i, ""))));
 
-  // carreras del formulario de registro, agrupadas por facultad
   $("#cr-carrera").insertAdjacentHTML("beforeend", N.FACULTADES.map((f) => `<optgroup label="${f}">${N.CARRERAS.filter((c) => c.facultad === f).map((c) => `<option value="${c.id}">${c.nombre}</option>`).join("")}</optgroup>`).join(""));
 
-  // reglas de contraseña en vivo
   document.querySelectorAll("[data-reglas]").forEach((p) => {
     const input = document.getElementById(p.dataset.reglas);
     input.addEventListener("input", () => {
@@ -112,7 +104,6 @@
     });
   });
 
-  // mostrar / ocultar contraseña
   document.querySelectorAll("[data-ver]").forEach((b) => b.addEventListener("click", () => {
     const input = document.getElementById(b.dataset.ver);
     const ver = input.type === "password";
@@ -121,7 +112,6 @@
     b.querySelector("use").setAttribute("href", ver ? "#i-ojo-no" : "#i-ojo");
   }));
 
-  // botón ocupado mientras responde Cognito
   async function enviar(form, texto, tarea) {
     const btn = form.querySelector("[type=submit]");
     const antes = btn.textContent;
@@ -133,7 +123,6 @@
     return null;
   }
 
-  // ---------- ingresar ----------
   $("#f-ingresar").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const email = $("#in-email"), pass = $("#in-pass");
@@ -154,7 +143,6 @@
     }
   });
 
-  // ---------- crear cuenta ----------
   $("#f-crear").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const nombre = $("#cr-nombre"), email = $("#cr-email"), carrera = $("#cr-carrera"), pass = $("#cr-pass");
@@ -178,7 +166,6 @@
     });
   });
 
-  // ---------- confirmar ----------
   $("#f-confirmar").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const email = $("#co-email"), codigo = $("#co-codigo");
@@ -189,7 +176,7 @@
     if (!ok) return;
     await enviar(ev.target, "Confirmando…", async () => {
       await A.confirmar({ email: email.value.trim(), codigo: codigo.value.trim() });
-      try { sessionStorage.removeItem(PENDIENTE); } catch (e) { /* nada */ }
+      try { sessionStorage.removeItem(PENDIENTE); } catch (e) {}
       if (passwordReciente) { await A.ingresar({ email: email.value.trim(), password: passwordReciente }); irAlBanco(); return; }
       $("#in-email").value = email.value.trim();
       ir("ingresar");
@@ -207,7 +194,6 @@
     } catch (e) { mostrarAviso(e.message, "neg"); }
   });
 
-  // ---------- olvidé la contraseña ----------
   let emailRecuperar = "";
   $("#f-olvide").addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -238,7 +224,6 @@
     });
   });
 
-  // ---------- inicio ----------
   const inicial = location.hash.slice(1) || "ingresar";
   mostrar(inicial === "restablecer" && !emailRecuperar ? "olvide" : inicial);
 })();

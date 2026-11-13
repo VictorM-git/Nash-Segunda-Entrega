@@ -1,17 +1,3 @@
-/* NASH — cliente de la API.
- *
- * Rutas:
- *   GET  /publico/resumen                    conteos por carrera, materia y tipo (sin sesión)
- *   GET  /materiales?materia&tipo&periodo&q  lista de material
- *   GET  /materiales/disponibilidad?...      números ya ocupados (la restricción de no repetir)
- *   POST /materiales                         valida, revisa duplicados y entrega un POST firmado para el archivo
- *   POST /materiales/{id}/confirmar          verifica el archivo y guarda el registro
- *   GET  /materiales/{id}/descarga           anota la descarga y entrega una URL firmada
- *   GET  /yo/aportes                         lo que subió quien tiene la sesión
- *   GET  /estadisticas                       agregados del banco
- *
- * Sin API_URL en config.js todo corre en MODO LOCAL: el banco empieza vacío y vive en este navegador.
- */
 (function () {
   const CFG = window.NASH_CONFIG || {};
   const N = window.NASH;
@@ -23,7 +9,6 @@
     constructor(mensaje, status, datos) { super(mensaje); this.status = status; this.datos = datos || {}; }
   }
 
-  // ---------- validación compartida (la Lambda repite cada regla: nunca se confía en el navegador) ----------
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
@@ -34,7 +19,6 @@
     const mat = N.porId[m.materia_id];
     if (!m.materia_id) e.materia_id = "Elige la materia.";
     else if (!mat || mat.dinamica) {
-      // materia escrita por el estudiante: se valida su nombre y que el id salga de él
       const nombre = String(m.materia_nombre || "").replace(/\s+/g, " ").trim();
       const err = N.validarNombreMateria(nombre);
       const enPensum = !err && N.carreraPorId[m.carrera_id] && N.enPensum(m.carrera_id, nombre);
@@ -61,7 +45,6 @@
     return e;
   }
 
-  // ---------- implementación real ----------
   async function pedir(ruta, { metodo = "GET", cuerpo, publico = false } = {}) {
     const headers = {};
     if (cuerpo) headers["Content-Type"] = "application/json";
@@ -91,7 +74,7 @@
     return new Promise((resolve, reject) => {
       const fd = new FormData();
       Object.entries(subida.fields || {}).forEach(([k, v]) => fd.append(k, v));
-      fd.append("file", archivo); // el archivo va al final del formulario
+      fd.append("file", archivo);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", subida.url);
       xhr.upload.onprogress = (e) => e.lengthComputable && alProgresar && alProgresar(e.loaded / e.total);
@@ -113,18 +96,17 @@
     estadisticas: () => pedir("/estadisticas")
   };
 
-  // ---------- modo local: el banco vive en este navegador y empieza vacío ----------
   const CLAVE = "nash.local.items";
   const espera = (min, max) => new Promise((r) => setTimeout(r, min + Math.random() * ((max || min) - min)));
-  const archivosEnMemoria = {}; // material_id → URL del archivo subido en esta pestaña
+  const archivosEnMemoria = {};
   const pendientes = {};
 
   function items() {
     let lista = null;
-    try { lista = JSON.parse(localStorage.getItem(CLAVE)); } catch (e) { /* nada */ }
+    try { lista = JSON.parse(localStorage.getItem(CLAVE)); } catch (e) {}
     return Array.isArray(lista) ? lista : [];
   }
-  function guardar(lista) { try { localStorage.setItem(CLAVE, JSON.stringify(lista)); } catch (e) { /* nada */ } }
+  function guardar(lista) { try { localStorage.setItem(CLAVE, JSON.stringify(lista)); } catch (e) {} }
   function yo() { const s = N.auth.sesion(); return s ? { sub: s.sub, nombre: s.nombre } : null; }
   function requiereSesion() { if (!yo()) throw new ApiError("Tu sesión terminó. Vuelve a ingresar.", 401); }
   const ordenar = (l) => l.sort((a, b) => (a.creado_en < b.creado_en ? 1 : -1));

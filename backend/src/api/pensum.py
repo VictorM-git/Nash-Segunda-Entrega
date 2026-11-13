@@ -1,11 +1,3 @@
-"""Carreras, pensums y materias de NASH, con las reglas compartidas con el frontend.
-
-IMPORTANTE: son las mismas listas de frontend/js/pensum.js. Si cambias una, cambia la otra.
-
-- CARRERAS: los pregrados que aparecen en los formularios.
-- MATERIAS: las de los pensums cargados (hoy MACC) y las del núcleo institucional, con id "<carrera>.<código>".
-- Las demás materias las crean los estudiantes al subir material: id "<carrera>.<slug del nombre>".
-"""
 import re
 import unicodedata
 
@@ -36,7 +28,6 @@ CARRERAS = {
     "creacion": "Creación Literaria",
 }
 
-# Pensums cargados: código → (nombre, semestre)
 PENSUMS = {
     "macc": {
         "11": ("Precálculo", 1), "12": ("Pensamiento matemático", 1), "13": ("Programación de computadores", 1),
@@ -64,7 +55,6 @@ CORTOS = {"nucleo.cp": "Constitución política", "macc.14": "Lógica, números 
           "macc.23": "Algoritmos y estructuras", "macc.24": "Lógica para computación",
           "macc.62": "Análisis numérico", "macc.72": "Math. Modeling in Nat. Sci."}
 
-# id → (nombre, semestre o None, carrera)
 MATERIAS = {f"{c}.{cod}": (nombre, sem, c) for c, pensum in PENSUMS.items() for cod, (nombre, sem) in pensum.items()}
 MATERIAS.update({f"nucleo.{cod}": (nombre, None, "nucleo") for cod, nombre in NUCLEO.items()})
 
@@ -72,33 +62,24 @@ TIPOS = ("apuntes", "parcial", "quiz", "ejercicios")
 TIPOS_ARCHIVO = {"application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png"}
 RE_NOMBRE_MATERIA = re.compile(r"^[\w .,:;()'&+\-]+$")
 
-
 def periodo_de_fecha(iso: str) -> str:
-    """'2026-04-17' → '2026-1'; julio a diciembre es el segundo periodo."""
     anio, mes = int(iso[0:4]), int(iso[5:7])
     return f"{anio}-{1 if mes <= 6 else 2}"
-
 
 def sin_tildes(texto: str) -> str:
     s = unicodedata.normalize("NFD", str(texto or ""))
     return "".join(c for c in s if not ("̀" <= c <= "ͯ"))
 
-
 def slug_texto(texto: str, maximo: int = 40) -> str:
-    """'Microeconomía I' → 'microeconomia-i' (igual que slugTexto() en pensum.js)."""
     s = re.sub(r"[^a-z0-9]+", "-", sin_tildes(texto).lower()).strip("-")
     return s[:maximo].rstrip("-")
 
-
 def slug(texto: str) -> str:
-    """'Prof. Andrés Vargas' → 'andres-vargas' (igual que slug() en pensum.js)."""
     s = re.sub(r"^(prof(esor|esora)?\.?\s+)", "", sin_tildes(texto).lower())
     return slug_texto(s, 40)
 
-
 def limpiar_nombre(nombre) -> str:
     return " ".join(str(nombre or "").split())
-
 
 def error_nombre_materia(nombre: str) -> str:
     n = limpiar_nombre(nombre)
@@ -110,30 +91,22 @@ def error_nombre_materia(nombre: str) -> str:
         return "Usa solo letras, números y puntuación simple."
     return ""
 
-
 def id_dinamico(carrera: str, nombre: str) -> str:
     return f"{carrera}.{slug_texto(limpiar_nombre(nombre), 48)}"
 
-
 def en_pensum(carrera: str, nombre: str):
-    """El id de la materia del pensum (de la carrera o del núcleo) que se llama igual, o None."""
     s = slug_texto(nombre, 80)
     for mid, (n, _sem, c) in MATERIAS.items():
         if c in (carrera, "nucleo") and (slug_texto(n, 80) == s or slug_texto(CORTOS.get(mid, ""), 80) == s):
             return mid
     return None
 
-
 RE_ID_MATERIA = re.compile(r"^[a-z][a-z-]{1,30}\.[a-z0-9][a-z0-9-]{0,47}$")
 
-
 def materia_valida(mid: str) -> bool:
-    """Un id de materia que puede existir: del pensum, o creado por estudiantes de una carrera conocida."""
     if mid in MATERIAS:
         return True
     return bool(RE_ID_MATERIA.match(mid or "")) and mid.split(".")[0] in CARRERAS
 
-
 def clave_unicidad(tipo: str, profesor: str, autor_id: str) -> str:
-    """Los apuntes son de quien los toma; lo demás (parcial, quiz, taller) es del profesor."""
     return autor_id if tipo == "apuntes" else slug(profesor)

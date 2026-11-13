@@ -44,7 +44,6 @@ Globals:
     Timeout: 29
 
 Resources:
-  # ---------------------------------------------------------------- S3: el sitio web
   WebBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -74,7 +73,6 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${WebBucket.Arn}/*"
 
-  # ---------------------------------------------------------------- S3: el data lake
   DataBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -93,7 +91,6 @@ Resources:
               SSEAlgorithm: AES256
       CorsConfiguration:
         CorsRules:
-          # El navegador sube el archivo con un POST firmado y lo descarga con una URL firmada.
           - AllowedOrigins:
               - !GetAtt WebBucket.WebsiteURL
               - !Ref OrigenLocal
@@ -115,7 +112,6 @@ Resources:
             Prefix: glue-temporal/
             ExpirationInDays: 2
 
-  # ---------------------------------------------------------------- Cognito
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -190,7 +186,6 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       SourceArn: !GetAtt UserPool.Arn
 
-  # ---------------------------------------------------------------- API Gateway (HTTP API) + Lambda
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -262,7 +257,6 @@ Resources:
           Type: HttpApi
           Properties: { ApiId: !Ref HttpApi, Path: /estadisticas, Method: GET }
 
-  # ---------------------------------------------------------------- Glue: catálogo, crawlers y ETL
   GlueDatabase:
     Type: AWS::Glue::Database
     Properties:
@@ -338,7 +332,6 @@ Resources:
       Actions:
         - JobName: !Ref EtlJob
 
-  # ---------------------------------------------------------------- Athena
   AthenaWorkGroup:
     Type: AWS::Athena::WorkGroup
     Properties:
@@ -356,7 +349,6 @@ Resources:
           EncryptionConfiguration:
             EncryptionOption: SSE_S3
 
-  # ---------------------------------------------------------------- IAM (solo fuera de AWS Academy)
   PreSignupRole:
     Type: AWS::IAM::Role
     Condition: CrearRoles

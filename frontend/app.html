@@ -13,14 +13,12 @@
   <link rel="stylesheet" href="css/fuentes.css">
   <link rel="stylesheet" href="css/app.css">
   <script>
-    // Sin sesión no se pinta nada: directo a ingresar (y de vuelta a esta misma ruta después).
     (function () {
       try {
-        // ?demo abre la cuenta de prueba (solo en modo local; app.js lo comprueba)
         if (!localStorage.getItem("nash.sesion") && !/[?&]demo(=|&|$)/.test(location.search)) {
           location.replace("ingresar.html?volver=" + encodeURIComponent(location.hash || "#/"));
         }
-      } catch (e) { /* sin almacenamiento: app.js decide con la sesión en memoria */ }
+      } catch (e) {   }
     })();
   </script>
 </head>

@@ -1,18 +1,3 @@
-/* NASH — carreras, pensums y materias.
- *
- * CARRERAS: los pregrados de la Universidad del Rosario que aparecen en los formularios. Revisa la lista contra
- *   el catálogo oficial antes de publicar; agregar o quitar una carrera es editar este arreglo (y el de
- *   backend/src/api/pensum.py).
- * PENSUMS: el plan de estudios cargado de cada carrera. Hoy solo está MACC (folleto oficial, página 09; sin
- *   electivas, menores ni opciones de grado). Una carrera sin pensum cargado funciona igual: sus materias
- *   aparecen cuando alguien sube la primera y escribe su nombre (materias "dinámicas").
- * NUCLEO: las materias del núcleo institucional, compartidas por todas las carreras.
- *
- * Id de una materia: "<carrera>.<código>" (macc.31, nucleo.lc) o, si la crearon los estudiantes,
- * "<carrera>.<slug del nombre>" (economia.microeconomia-i). El id va en la llave de S3 de cada material.
- *
- * IMPORTANTE: la Lambda (backend/src/api/pensum.py) tiene las mismas listas. Si cambias una, cambia la otra.
- */
 (function () {
   const F = {
     ing: "Escuela de Ingeniería, Ciencia y Tecnología",
@@ -54,8 +39,6 @@
   const carreraPorId = Object.fromEntries(CARRERAS.map((c) => [c.id, c]));
   const FACULTADES = [...new Set(CARRERAS.map((c) => c.facultad))];
 
-  // ---------- pensums cargados ----------
-  // M(código, nombre, semestre, créditos, prerrequisitos por código, extra)
   const M = (codigo, nombre, semestre, creditos, prer, extra) => Object.assign({ codigo, nombre, semestre, creditos, prer: prer || [] }, extra || {});
   const PENSUMS = {
     macc: [
@@ -95,7 +78,6 @@
     ]
   };
 
-  // Núcleo institucional: lo comparten todas las carreras
   const NUCLEO = [
     M("lc", "Lectura crítica", 1, 2),
     M("et", "Ética", 1, 2),
@@ -123,26 +105,22 @@
   const tipoPorId = Object.fromEntries(TIPOS.map((t) => [t.id, t]));
   const ROMANOS = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-  /** "2026-04-17" → "2026-1"; julio a diciembre es el segundo periodo. */
   function periodoDeFecha(iso) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
     const [a, m] = iso.split("-").map(Number);
     return `${a}-${m <= 6 ? 1 : 2}`;
   }
 
-  /** "Microeconomía I" → "microeconomia-i" (igual que slug_texto() en la Lambda). */
   function slugTexto(txt, max) {
     return String(txt || "")
       .normalize("NFD").replace(/[̀-ͯ]/g, "")
       .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max || 40).replace(/-+$/, "");
   }
-  /** "Prof. Andrés Vargas" → "andres-vargas" (igual que slug() en la Lambda). */
   function slug(txt) {
     const s = String(txt || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/^(prof(esor|esora)?\.?\s+)/, "");
     return slugTexto(s, 40);
   }
 
-  // ---------- materias creadas por los estudiantes ----------
   const limpiarNombre = (s) => String(s || "").replace(/\s+/g, " ").trim();
   function validarNombreMateria(nombre) {
     const n = limpiarNombre(nombre);
@@ -152,12 +130,10 @@
     return "";
   }
   const idDinamico = (carrera, nombre) => `${carrera}.${slugTexto(limpiarNombre(nombre), 48)}`;
-  /** La materia del pensum (de la carrera o del núcleo) que se llama igual, si existe. */
   function enPensum(carrera, nombre) {
     const s = slugTexto(nombre, 80);
     return MATERIAS.find((m) => (m.carrera === carrera || m.nucleo) && (slugTexto(m.nombre, 80) === s || (m.corto && slugTexto(m.corto, 80) === s))) || null;
   }
-  /** Registra una materia que llegó con el material (una que no está en ningún pensum cargado). */
   function agregarMateria(id, nombre, carrera) {
     if (!id) return null;
     if (porId[id]) return porId[id];
@@ -165,21 +141,17 @@
     porId[id] = { id, codigo: "", nombre: limpiarNombre(nombre) || id, carrera: c, nucleo: c === "nucleo", dinamica: true, semestre: 0, prer: [], abre: [] };
     return porId[id];
   }
-  /** Una lista de material (o el resumen público) trae materias nuevas: se registran todas. */
   function registrar(items) {
     (items || []).forEach((it) => it && agregarMateria(it.materia_id, it.materia_nombre, it.carrera_id));
   }
-  /** La materia de un material, aunque no se haya registrado antes. */
   const materiaDe = (it) => porId[it.materia_id] || agregarMateria(it.materia_id, it.materia_nombre, it.carrera_id);
 
   const tienePensum = (carrera) => !!PENSUMS[carrera];
   const pensumDe = (carrera) => MATERIAS.filter((m) => m.carrera === carrera);
   const dinamicasDe = (carrera) => Object.values(porId).filter((m) => m.dinamica && m.carrera === carrera).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   const nucleo = () => MATERIAS.filter((m) => m.nucleo);
-  /** Todo lo que ve un estudiante de esa carrera: su pensum, las materias que agregaron y el núcleo. */
   const materiasDe = (carrera) => pensumDe(carrera).concat(dinamicasDe(carrera), nucleo());
   const semestresDe = (carrera) => [...new Set(pensumDe(carrera).map((m) => m.semestre))].sort((a, b) => a - b);
-  /** ¿Este material le sirve a un estudiante de esa carrera? (lo de su carrera y lo del núcleo) */
   const esDeCarrera = (it, carrera) => !carrera || it.carrera_id === carrera || it.carrera_id === "nucleo";
 
   window.NASH = window.NASH || {};

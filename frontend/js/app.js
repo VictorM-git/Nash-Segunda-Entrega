@@ -1,6 +1,3 @@
-/* NASH — la app: rutas por hash, el pensum de tu carrera, cada materia con su material, subir sin repetir
-   (no entra dos veces el mismo parcial), mis aportes y las estadísticas del banco.
-   Todo dato que llega del servidor se escapa antes de pintarse. */
 (function () {
   const N = window.NASH;
   const A = N.auth;
@@ -9,14 +6,12 @@
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const vista = $("#vista");
 
-  // ---------- utilidades ----------
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const fmt = (n) => Number(n || 0).toLocaleString("es-CO");
   const plural = (n, uno, varios) => `${fmt(n)} ${n === 1 ? uno : varios}`;
   const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   const diaBog = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" });
   const hoy = () => API.hoyISO();
-  /** "2026-04-25T21:40:00Z" → "2026-04-25" en hora de Bogotá */
   const dia = (iso) => (!iso ? "" : iso.length > 10 ? diaBog.format(new Date(iso)) : iso);
   function fechaCorta(iso) {
     if (!iso) return "—";
@@ -54,10 +49,8 @@
     partes.push(`${ext(it)} · ${peso(it.archivo_bytes)}`);
     return partes.join(" · ");
   }
-  /** <option> de las carreras, agrupadas por facultad */
   const opcionesCarrera = (sel) => N.FACULTADES.map((f) => `<optgroup label="${esc(f)}">${N.CARRERAS.filter((c) => c.facultad === f).map((c) => `<option value="${c.id}"${c.id === sel ? " selected" : ""}>${esc(c.nombre)}</option>`).join("")}</optgroup>`).join("");
 
-  // ---------- datos (una lista por sesión, se refresca al subir o descargar) ----------
   let cache = null, cacheT = 0;
   function lista(forzar) {
     if (!forzar && cache && Date.now() - cacheT < 60000) return cache;
@@ -67,7 +60,6 @@
   }
   const invalidar = () => { cache = null; };
 
-  // ---------- avisos flotantes ----------
   function toast(texto, tipo) {
     const t = document.createElement("div");
     t.className = "toast";
@@ -77,7 +69,6 @@
     setTimeout(() => { t.classList.add("sale"); setTimeout(() => t.remove(), 200); }, tipo === "largo" ? 7000 : 4500);
   }
 
-  // ---------- estados ----------
   const sk = (w, h) => `<span class="skeleton" style="width:${w};height:${h || 14}px"></span>`;
   const filasCargando = (n) => `<div class="feed">${Array.from({ length: n }, () => `<div class="feed-row" aria-hidden="true"><div style="display:grid;gap:8px">${sk("62%")}${sk("40%", 12)}</div>${sk("48px")}</div>`).join("")}</div>`;
   function errorEn(el, e, reintentar) {
@@ -90,7 +81,6 @@
     location.replace("ingresar.html?volver=" + encodeURIComponent(location.hash || "#/"));
   }
 
-  // ---------- descargas (delegadas) ----------
   vista.addEventListener("click", async (ev) => {
     const b = ev.target.closest("[data-descargar]");
     if (!b) return;
@@ -114,7 +104,6 @@
     } finally { b.disabled = false; }
   });
 
-  // ---------- filas ----------
   function filaFeed(it, opciones) {
     const m = mat(it);
     const o = opciones || {};
@@ -143,14 +132,12 @@
       <tbody>${items.map((it) => filaTabla(it, o)).join("")}</tbody></table></div>`;
   }
 
-  // ---------- conteos por materia ----------
   function conteos(items, tipo) {
     const c = {};
     items.forEach((it) => { if (!tipo || it.tipo === tipo) c[it.materia_id] = (c[it.materia_id] || 0) + 1; });
     return c;
   }
 
-  // ---------- elegir la carrera (la primera vez, o si se borró del navegador) ----------
   function elegirCarrera(caja, alElegir) {
     caja.innerHTML = `<section class="panel arranque" aria-labelledby="t-carrera">
       <h2 id="t-carrera">¿Qué carrera estudias?</h2>
@@ -169,9 +156,6 @@
     });
   }
 
-  // =====================================================================
-  // INICIO: saludo, conteos por tipo (filtran el mapa) y las materias de tu carrera
-  // =====================================================================
   async function inicio(ctx) {
     const s = yo();
     const primerNombre = String(s.nombre || "").split(" ")[0] || "de nuevo";
@@ -195,7 +179,6 @@
     const carrerasCon = new Set(todos.map((it) => it.carrera_id).filter((c) => c !== "nucleo")).size;
     const ultimo = items[0];
 
-    // el dato del día
     $("#dato-hoy").textContent = items.length
       ? `${fechaLarga(hoy())}. ${C.corto} tiene ${plural(items.length, "archivo", "archivos")} en ${plural(new Set(items.map((it) => it.materia_id)).size, "materia", "materias")}; lo último es ${etiqueta(ultimo)} de ${nombreMateria(mat(ultimo), true)}.`
       : todos.length
@@ -220,7 +203,6 @@
       </section>
       <div class="grid" id="i-listas" style="margin-top:var(--gap)"></div>`;
 
-    // conteos por tipo
     let tipoSel = "";
     let foco = null;
     const kpis = $("#kpis");
@@ -242,7 +224,6 @@
       });
     }
 
-    // el mapa: el pensum por semestre si está cargado; si no, las materias que ya tienen material
     const cuerpo = $("#mapa-cuerpo");
     const propias = N.pensumDe(car);
     const semestres = N.semestresDe(car);
@@ -293,7 +274,6 @@
     cuerpo.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && foco) { foco = null; marcar(); } });
     pintarMapa();
 
-    // recién subidos y tus aportes (si el banco está vacío, el panel de arriba ya dice qué hacer)
     const mios = todos.filter(esMio);
     const recientes = items.length ? items : todos;
     if (!recientes.length && !mios.length) { $("#i-listas").remove(); return; }
@@ -307,9 +287,6 @@
           : `<div class="empty"><b>Aún no has subido nada.</b>Un parcial que ya te devolvieron le ahorra una semana a alguien del semestre de abajo.<a class="btn" href="#/subir">Subir material</a></div>`}</section>`;
   }
 
-  // =====================================================================
-  // MATERIA: su material con filtros, quién lo subió y su lugar en el pensum
-  // =====================================================================
   async function materia(ctx) {
     const id = decodeURIComponent(ctx.partes[1] || "");
     let m = N.porId[id];
@@ -341,7 +318,6 @@
     const gente = Object.values(autores).sort((a, b) => b.n - a.n || a.nombre.localeCompare(b.nombre));
     $("#m-sub").textContent += propios.length ? ` · ${plural(propios.length, "archivo", "archivos")} de ${plural(gente.length, "estudiante", "estudiantes")}` : " · todavía sin material";
 
-    // carril: quién lo subió y la cadena del pensum
     const c = conteos(items);
     const enlace = (x) => { const y = N.porId[x]; return `<a href="#/materia/${encodeURIComponent(y.id)}"><span class="cod">${esc(y.codigo)}</span><span>${esc(y.corto || y.nombre)}</span><span class="n">${fmt(c[y.id])}</span></a>`; };
     const enPensum = !m.nucleo && !m.dinamica;
@@ -414,9 +390,6 @@
     return limpio(`${it.titulo} ${it.profesor} ${it.autor_nombre} ${m.codigo} ${m.nombre} ${nombreCarrera(m.carrera)} ${etiqueta(it)}`).includes(limpio(q));
   }
 
-  // =====================================================================
-  // EXPLORAR: todo el banco con filtros
-  // =====================================================================
   async function explorar(ctx) {
     titulo("Explorar el banco");
     const f = { tipo: ctx.q.get("tipo") || "", carrera: ctx.q.get("carrera") || "", periodo: ctx.q.get("periodo") || "", orden: ctx.q.get("orden") || "", q: ctx.q.get("q") || "" };
@@ -480,15 +453,12 @@
     if (f.q) $("#e-q").focus();
   }
 
-  // =====================================================================
-  // SUBIR: formulario que no deja repetir un parcial, quiz, taller o semana
-  // =====================================================================
   const NUEVA = "__nueva";
   async function subir(ctx) {
     titulo("Subir material");
     vista.innerHTML = `<div class="page"><div class="title-row"><div><h1>Subir material</h1></div></div><div id="s-pagina">${filasCargando(3)}</div></div>`;
     let items = [];
-    try { items = await lista(); } catch (e) { if (e.status === 401) return salirPorSesion(); /* sin lista se puede subir igual */ }
+    try { items = await lista(); } catch (e) { if (e.status === 401) return salirPorSesion(); }
     if (!ctx.vigente()) return;
 
     const pre = N.porId[ctx.q.get("materia") || ""];
@@ -537,12 +507,11 @@
     const form = $("#f-subir");
     const el = { carrera: $("#s-carrera"), materia: $("#s-materia"), nueva: $("#s-nueva"), fecha: $("#s-fecha"), profe: $("#s-profe"), numero: $("#s-numero"), titulo: $("#s-titulo"), sol: $("#s-solucion"), desc: $("#s-desc"), archivo: $("#s-archivo") };
     let archivo = null;
-    let disp = null;      // última respuesta de disponibilidad
-    let choque = null;    // registro que ya ocupa ese número
+    let disp = null;
+    let choque = null;
     let consultando = false;
     let enviando = false;
 
-    // ----- carrera y materia -----
     function pintarMaterias(seleccion) {
       carrera = el.carrera.value;
       if (!carrera) { el.materia.innerHTML = `<option value="">Primero elige la carrera</option>`; el.materia.disabled = true; $("#s-nueva-fila").hidden = true; return; }
@@ -564,7 +533,6 @@
     const tipo = () => (form.querySelector("input[name=tipo]:checked") || {}).value || "";
     const periodo = () => N.periodoDeFecha(el.fecha.value);
     const nombreNueva = () => el.nueva.value.replace(/\s+/g, " ").trim();
-    /** la materia elegida: { id, nombre, carrera } o null */
     function materiaElegida() {
       const v = el.materia.value;
       if (!v) return null;
@@ -590,7 +558,6 @@
     }
     profesSugeridos();
 
-    // ----- no repetir: qué números ya están -----
     let tDisp, pedido = 0;
     function revisarDisponibilidad() {
       clearTimeout(tDisp);
@@ -650,7 +617,6 @@
       el.numero.value = b.dataset.usar; errorCampo(el.numero, ""); pintarDisp(); el.numero.focus();
     });
 
-    // ----- vista previa y estado del botón -----
     function actualizar() {
       const t = N.tipoPorId[tipo()];
       $("#l-numero").textContent = t ? t.numero : "Número";
@@ -675,7 +641,6 @@
       razon.textContent = choque ? "Ese número ya está en el banco: cambia el número o revisa el material que ya existe." : "";
     }
 
-    // ----- errores por campo -----
     const campoDe = { materia_id: el.materia, materia_nombre: el.nueva, tipo: form.querySelector("input[name=tipo]"), numero: el.numero, titulo: el.titulo, profesor: el.profe, fecha: el.fecha, descripcion: el.desc, archivo: el.archivo };
     function mostrarErrores(errores) {
       Object.entries(campoDe).forEach(([k, input]) => errorCampo(input, errores[k] || ""));
@@ -683,7 +648,6 @@
       if (primero) campoDe[primero].focus();
     }
 
-    // ----- archivo -----
     function elegir(f) {
       archivo = f || null;
       const caja = $("#s-elegido");
@@ -703,7 +667,6 @@
     ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, () => drop.classList.remove("over")));
     drop.addEventListener("drop", (ev) => { ev.preventDefault(); if (ev.dataTransfer.files[0]) elegir(ev.dataTransfer.files[0]); });
 
-    // ----- eventos de los campos -----
     el.carrera.addEventListener("change", () => {
       const c = el.carrera.value;
       pintarMaterias(c && !N.tienePensum(c) && !N.dinamicasDe(c).length ? NUEVA : "");
@@ -716,7 +679,6 @@
     });
     el.nueva.addEventListener("input", () => {
       errorCampo(el.nueva, "");
-      // si el nombre ya está en la lista, se elige esa materia en vez de crear otra
       const ya = N.enPensum(carrera, nombreNueva()) || N.dinamicasDe(carrera).find((m) => N.slugTexto(m.nombre, 80) === N.slugTexto(nombreNueva(), 80));
       if (ya) { pintarMaterias(ya.id); toast(`«${ya.nombre}» ya está en la lista: quedó elegida.`); el.materia.focus(); }
       revisarDisponibilidad(); actualizar();
@@ -728,7 +690,6 @@
     [el.titulo, el.desc].forEach((i) => i.addEventListener("input", () => { errorCampo(i, ""); actualizar(); }));
     el.sol.addEventListener("change", actualizar);
 
-    // ----- enviar: crear → subir el archivo → confirmar -----
     form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       if (enviando || choque) return;
@@ -762,7 +723,6 @@
         volverAlForm();
         if (e.status === 401) return salirPorSesion();
         if (e.status === 409 && e.datos && e.datos.existente) {
-          // otra persona lo subió mientras llenabas el formulario
           disp = null; revisarDisponibilidad();
           $("#s-razon").textContent = "Alguien lo subió hace un momento: ya está en el banco.";
           return;
@@ -788,7 +748,6 @@
     if (pre) revisarDisponibilidad();
   }
 
-  // campo con error: mensaje debajo, aria-invalid y aria-errormessage
   function errorCampo(input, texto) {
     if (!input) return;
     const field = input.closest(".field");
@@ -802,9 +761,6 @@
     input.setAttribute("aria-errormessage", e.id);
   }
 
-  // =====================================================================
-  // MIS APORTES
-  // =====================================================================
   async function misAportes(ctx) {
     titulo("Mis aportes");
     vista.innerHTML = `<div class="page">
@@ -829,7 +785,6 @@
     $("#a-cuerpo").innerHTML = mios.length ? tabla(mios, { conMateria: true, sinAutor: true })
       : `<div class="empty"><b>Aún no has subido nada.</b>Empieza por un parcial que ya te devolvieron o tus apuntes de una semana. Queda con tu nombre en la materia.<a class="btn primary" href="#/subir">Subir material</a></div>`;
 
-    // materias del pensum de tu carrera que siguen vacías: donde un aporte rinde más
     const car = miCarrera();
     if (!car || !N.tienePensum(car)) return;
     try {
@@ -844,12 +799,9 @@
         ${vacias.length ? `<p class="muted" style="margin-bottom:14px">Si ya viste alguna, lo primero que subas es lo único que habrá de ella.</p>
         <div class="huecos">${vacias.map((m) => `<a href="#/subir?materia=${encodeURIComponent(m.id)}">${m.codigo ? `<span class="cod">${esc(m.codigo)}</span>` : ""}${esc(m.corto || m.nombre)}</a>`).join("")}</div>`
         : `<p class="muted">Todas las materias del pensum tienen al menos un archivo.</p>`}`;
-    } catch (e) { /* el bloque es opcional */ }
+    } catch (e) {}
   }
 
-  // =====================================================================
-  // ESTADÍSTICAS
-  // =====================================================================
   async function estadisticas(ctx) {
     titulo("Estadísticas");
     vista.innerHTML = `<div class="page">
@@ -896,7 +848,6 @@
       </div>`;
   }
 
-  /** El banco sin material: la misma estructura con ceros y los datos que ya existen (carreras, pensum, tipos). */
   function estadisticasVacias() {
     const cero = (lbl, nota) => `<li class="cero"><span class="t">${lbl}</span><span class="v">${nota || "0"}</span><span class="b"></span></li>`;
     const barra = (lbl, v, max, nota) => `<li><span class="t">${lbl}</span><span class="v">${nota || fmt(v)}</span><span class="b" style="--w:${(v / max) * 100}%"></span></li>`;
@@ -932,7 +883,6 @@
     vista.innerHTML = `<div class="page"><div class="title-row"><div><h1>Esa página no existe</h1><p class="sub">Puede que la materia o el enlace hayan cambiado.</p></div></div><a class="btn primary" href="#/">Volver al inicio</a></div>`;
   }
 
-  // ---------- shell ----------
   function titulo(t) {
     document.title = t + " · NASH";
     $("#titulo-movil").textContent = t;
@@ -968,7 +918,6 @@
   });
   $("#salir").addEventListener("click", () => { A.salir(); location.replace("index.html"); });
 
-  // ---------- rutas ----------
   let generacion = 0;
   let primera = true;
   async function render() {
@@ -993,12 +942,11 @@
     }
   }
 
-  // ---------- arranque: sesión ----------
   async function arrancar() {
     if (!A.sesion()) {
       if (A.DEMO && A.CUENTA_PRUEBA && /[?&]demo(=|&|$)/.test(location.search)) {
         const c = A.CUENTA_PRUEBA;
-        try { await A.ingresar({ email: c.email, password: c.password }); } catch (e) { /* cae al ingreso normal */ }
+        try { await A.ingresar({ email: c.email, password: c.password }); } catch (e) {}
       }
       if (!A.sesion()) { location.replace("ingresar.html?volver=" + encodeURIComponent(location.hash || "#/")); return; }
     }
